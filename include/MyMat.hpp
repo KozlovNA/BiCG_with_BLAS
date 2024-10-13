@@ -31,30 +31,21 @@ public:
 
 };
 
-class MyMatrixXcf: public Eigen::MatrixXcf 
+template<typename T>
+class MyMatrixX: public Eigen::MatrixX<T> 
 {
 public:
 
-  using Eigen::MatrixXcf::MatrixXcf;
+  using Eigen::MatrixX<T>::MatrixX;
 
   template<class VT, class RT>
   void matvec(const VT   &x,
               const int  &n,
               RT         &res) const
   {
-    
-    for (int i = 0; i < n; i++)
-    {
-      std::complex<float> sum = 0;
-
-      for(int j = 0; j < n; j++)
-      {
-        sum += (*this).coeff(i,j)*(*(x.begin()+j));
-      }
-
-      *(res.begin() + i) = sum;
-    }
-
+    T one = 1;
+    T zero = 0;
+    BLAS::gemv('N', n, n, one, (*this).data(), n, x.data(), 1, zero, res.data(), 1);
   }
 
 };

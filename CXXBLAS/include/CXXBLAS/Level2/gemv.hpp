@@ -80,7 +80,10 @@ namespace BLAS
                         y[j * incy] *= beta;
                         for (CXXBLAS_INT i = 0; i < m; i++)
                         {
-                            y[j * incy] += alpha * std::conj(A[i + j * m]) * x[i * incx];
+                            if constexpr (std::is_same_v<DataType, std::complex<float>> ||
+                                  std::is_same_v<DataType, std::complex<double>>)
+                            {y[j * incy] += alpha * std::conj(A[i + j * m]) * x[i * incx];}
+                            else {y[j * incy] += alpha * A[i + j * m] * x[i * incx];}
                         }
                     }
                 }

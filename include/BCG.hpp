@@ -62,12 +62,12 @@ void bcg (const MT      &A,
     rk_norm_sq_rel = BLAS::nrm2(n, rk.data(), 1)/
                      BLAS::nrm2(n, r0c.data(), 1);
     std::cout << "step: " << float(k) + 0.5
-              << ", (sk,sk)^1/2 / (r0,r0)^1/2 = " << std::sqrt(rk_norm_sq_rel)
+              << ", (sk,sk)^1/2 / (r0,r0)^1/2 = " << rk_norm_sq_rel
               << "\n\n";
     logs << float(k) + 0.5 << ',' 
-         << std::sqrt(rk_norm_sq_rel) << ',' 
+         << rk_norm_sq_rel << ',' 
          << matvec_count << '\n';
-    if (rk_norm_sq_rel < eps*eps){
+    if (rk_norm_sq_rel < eps){
       BLAS::axpy(n, alphak,pk.data(),1, x.data(),1);
       auto end = std::chrono::high_resolution_clock::now();
       std::cout << "\n\n" << "total time: "
@@ -89,12 +89,12 @@ void bcg (const MT      &A,
     rk_norm_sq_rel = BLAS::nrm2(n, rk.data(), 1)/
                      BLAS::nrm2(n, r0c.data(), 1);
     std::cout << "step: " << k + 1
-              << ", (rk,rk)^1/2 / (r0,r0)^1/2 = " << std::sqrt(rk_norm_sq_rel)
+              << ", (rk,rk)^1/2 / (r0,r0)^1/2 = " << rk_norm_sq_rel
               << "\n\n";
     logs << k + 1 << ',' 
-         << std::sqrt(rk_norm_sq_rel) << ',' 
+         << rk_norm_sq_rel << ',' 
          << matvec_count << '\n';
-    if (rk_norm_sq_rel < eps*eps)
+    if (rk_norm_sq_rel < eps)
     {
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n\n" << "total time: "

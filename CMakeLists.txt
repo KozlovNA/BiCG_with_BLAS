@@ -21,7 +21,12 @@ if(BLAS_FOUND)
     include_directories(${BLAS_INCLUDE_DIRS})
     target_link_libraries(main ${BLAS_LIBRARIES})
 endif(BLAS_FOUND)
-target_link_libraries(main Eigen3::Eigen)# ${CMAKE_SOURCE_DIR}/CXXBLAS/lib/libcxxblas.a)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+message("OpenMP found.")
+# target_link_libraries(main PUBLIC OpenMP::OpenMP_CXX)
+endif()
+target_link_libraries(main Eigen3::Eigen OpenMP::OpenMP_CXX)# ${CMAKE_SOURCE_DIR}/CXXBLAS/lib/libcxxblas.a)
 
 # to change oprimization, run this command in shell
 # cmake .. -DCMAKE_BUILD_TYPE=Release
