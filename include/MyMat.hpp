@@ -1,5 +1,5 @@
-#ifndef MYMAT_H
-#define MYMAT_H
+#ifndef MYMAT_HPP
+#define MYMAT_HPP
 
 #include <Eigen/Dense>
 
