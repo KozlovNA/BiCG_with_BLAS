@@ -8,8 +8,8 @@ int main()
 {
   //-----------------------------------------------
   //simplest test on 3x3 matrix
-  using VectorType = Eigen::VectorXd;
-  using MatrixType = MyMatrixXd;
+  using VectorType = Eigen::VectorXcf;
+  using MatrixType = MyMatrixXcf;
 
   MatrixType A(3,3);
   A << 2, 3, 5,

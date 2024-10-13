@@ -15,13 +15,13 @@ file(GLOB SOURCES "src/*.cpp")
 # executable file
 add_executable(main ${SOURCES})
 
-include_directories(./include)
+include_directories(./include ./CXXBLAS/include)
 if(BLAS_FOUND)
     message("OpenBLAS found.")
     include_directories(${BLAS_INCLUDE_DIRS})
     target_link_libraries(main ${BLAS_LIBRARIES})
 endif(BLAS_FOUND)
-target_link_libraries(main Eigen3::Eigen)
+target_link_libraries(main Eigen3::Eigen)# ${CMAKE_SOURCE_DIR}/CXXBLAS/lib/libcxxblas.a)
 
 # to change oprimization, run this command in shell
 # cmake .. -DCMAKE_BUILD_TYPE=Release

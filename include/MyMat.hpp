@@ -31,4 +31,32 @@ public:
 
 };
 
+class MyMatrixXcf: public Eigen::MatrixXcf 
+{
+public:
+
+  using Eigen::MatrixXcf::MatrixXcf;
+
+  template<class VT, class RT>
+  void matvec(const VT   &x,
+              const int  &n,
+              RT         &res) const
+  {
+    
+    for (int i = 0; i < n; i++)
+    {
+      std::complex<float> sum = 0;
+
+      for(int j = 0; j < n; j++)
+      {
+        sum += (*this).coeff(i,j)*(*(x.begin()+j));
+      }
+
+      *(res.begin() + i) = sum;
+    }
+
+  }
+
+};
+
 #endif
