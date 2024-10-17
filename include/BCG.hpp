@@ -5,6 +5,7 @@
 #include<CXXBLAS.hpp>
 #include<chrono>
 #include<fstream>
+#include<extended.hpp>
 
 template<class MT, class VT>
 void bcg (const MT      &A,
@@ -42,12 +43,19 @@ void bcg (const MT      &A,
 
   //prepare outputs
   int matvec_count = 0;
-  double rk_norm_sq_rel = 0;
+  double rk_norm_rel = 0;
   
-  std::ofstream logs("../output/BCGSTAB_logs.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("../output/BCGSTAB_logs.csv", 
+                     std::ios::out | std::ios::trunc);
   logs << "k,res_2norm_rel,matvec_count\n";
 
   auto start = std::chrono::high_resolution_clock::now();
+
+  //count real residual
+  std::ofstream real_res("../output/BCGSTAB_real_res.csv", 
+                         std::ios::out | std::ios::trunc);
+  real_res << "k,real_res\n";
+  double real_res_norm_rel = 0;
 
   //main loop
   for (int k = 0; k < n; k++)
@@ -58,17 +66,27 @@ void bcg (const MT      &A,
              BLAS::dotc(n, r0c.data(),1, vk.data(),1);
     BLAS::axpy(n, -alphak,vk.data(),1, rk.data(),1);
 
+    //-real residual-
+    if (k%10==1)
+    {
+    A.template matvec<VT, std::vector<T>>(x, n, rk);
+    BLAS::rscal(n, -1.0,rk.data(),1);
+    BLAS::axpy(n, one,b.data(),1, rk.data(),1);
+    } else {
+      
+    }
+    //---------------
     //output 1/2
     matvec_count++;
-    rk_norm_sq_rel = BLAS::nrm2(n, rk.data(), 1)/
+    rk_norm_rel = BLAS::nrm2(n, rk.data(), 1)/
                      BLAS::nrm2(n, r0c.data(), 1);
     std::cout << "step: " << float(k) + 0.5
-              << ", (sk,sk)^1/2 / (r0,r0)^1/2 = " << rk_norm_sq_rel
+              << ", (sk,sk)^1/2 / (r0,r0)^1/2 = " << rk_norm_rel
               << "\n\n";
     logs << float(k) + 0.5 << ',' 
-         << rk_norm_sq_rel << ',' 
+         << rk_norm_rel << ',' 
          << matvec_count << '\n';
-    if (rk_norm_sq_rel < eps){
+    if (rk_norm_rel < eps){
       BLAS::axpy(n, alphak,pk.data(),1, x.data(),1);
       auto end = std::chrono::high_resolution_clock::now();
       std::cout << "\n\n" << "total time: "
@@ -77,7 +95,6 @@ void bcg (const MT      &A,
       break;
     }
     //------
-    
     A.template matvec<std::vector<T>, std::vector<T>>(rk, n, tk);
     omegak = BLAS::dotc(n, tk.data(),1, rk.data(),1) /
              BLAS::dotc(n, tk.data(),1, tk.data(),1);
@@ -85,17 +102,30 @@ void bcg (const MT      &A,
     BLAS::axpy(n, omegak,rk.data(),1, x.data(),1);
     BLAS::axpy(n, -omegak,tk.data(),1, rk.data(),1);
 
+    //-real residual-
+    if (k%10==1)
+    {
+    std::vector<T> real_res_v(n);
+    A.template matvec<VT, std::vector<T>>(x, n, real_res_v);
+    BLAS::rscal(n, -1.0,real_res_v.data(),1);
+    BLAS::axpy(n, one,b.data(),1, real_res_v.data(),1);
+    real_res_norm_rel = BLAS::nrm2(n, real_res_v.data(), 1)/
+                           BLAS::nrm2(n, r0c.data(), 1);
+    real_res << k + 1  << ','
+             << real_res_norm_rel << '\n';
+    } 
+    //---------------
     //output 1
     matvec_count++;
-    rk_norm_sq_rel = BLAS::nrm2(n, rk.data(), 1)/
+    rk_norm_rel = BLAS::nrm2(n, rk.data(), 1)/
                      BLAS::nrm2(n, r0c.data(), 1);
     std::cout << "step: " << k + 1
-              << ", (rk,rk)^1/2 / (r0,r0)^1/2 = " << rk_norm_sq_rel
+              << ", (rk,rk)^1/2 / (r0,r0)^1/2 = " << rk_norm_rel
               << "\n\n";
     logs << k + 1 << ',' 
-         << rk_norm_sq_rel << ',' 
+         << rk_norm_rel << ',' 
          << matvec_count << '\n';
-    if (rk_norm_sq_rel < eps)
+    if (rk_norm_rel < eps)
     {
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n\n" << "total time: "
@@ -111,6 +141,8 @@ void bcg (const MT      &A,
     BLAS::axpy(n, one,rk.data(),1, pk.data(),1);
     BLAS::axpy(n, -betak*omegak,vk.data(),1, pk.data(),1);
   }
+  logs.close();
+  real_res.close();
 }
 
 #endif
