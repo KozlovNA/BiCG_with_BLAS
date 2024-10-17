@@ -22,7 +22,8 @@ void bcg (const MT      &A,
   //initializing algorythm 
   std::vector<T> rk(n);
   A.template matvec<VT, std::vector<T>>(x, n, rk);
-  BLAS::axpby(n, one,b.data(),1, m_one,rk.data(),1);
+  BLAS::rscal(n, -1.0,rk.data(),1);
+  BLAS::axpy(n, one,b.data(),1, rk.data(),1);
 
   std::vector<T> pk(n);
   BLAS::copy(n, rk.data(),1, pk.data(),1);
@@ -52,10 +53,10 @@ void bcg (const MT      &A,
   for (int k = 0; k < n; k++)
   {
     A.template matvec<std::vector<T>, std::vector<T>>(pk, n, vk);
-    betak_denom = BLAS::dot(n, r0c.data(),1, rk.data(),1);
+    betak_denom = BLAS::dotc(n, r0c.data(),1, rk.data(),1);
     alphak = betak_denom /
-             BLAS::dot(n, r0c.data(),1, vk.data(),1);
-    BLAS::axpby(n, -alphak,vk.data(),1, one,rk.data(),1);
+             BLAS::dotc(n, r0c.data(),1, vk.data(),1);
+    BLAS::axpy(n, -alphak,vk.data(),1, rk.data(),1);
 
     //output 1/2
     matvec_count++;
@@ -78,11 +79,11 @@ void bcg (const MT      &A,
     //------
     
     A.template matvec<std::vector<T>, std::vector<T>>(rk, n, tk);
-    omegak = BLAS::dot(n, tk.data(),1, rk.data(),1) /
-             BLAS::dot(n, tk.data(),1, tk.data(),1);
-    BLAS::axpby(n, alphak,pk.data(),1, one,x.data(),1);
-    BLAS::axpby(n, omegak,rk.data(),1, one,x.data(),1);
-    BLAS::axpby(n, -omegak,tk.data(),1, one,rk.data(),1);
+    omegak = BLAS::dotc(n, tk.data(),1, rk.data(),1) /
+             BLAS::dotc(n, tk.data(),1, tk.data(),1);
+    BLAS::axpy(n, alphak,pk.data(),1, x.data(),1);
+    BLAS::axpy(n, omegak,rk.data(),1, x.data(),1);
+    BLAS::axpy(n, -omegak,tk.data(),1, rk.data(),1);
 
     //output 1
     matvec_count++;
@@ -104,10 +105,11 @@ void bcg (const MT      &A,
     }
     //------
 
-    betak = BLAS::dot(n, r0c.data(),1, rk.data(),1) * alphak /
+    betak = BLAS::dotc(n, r0c.data(),1, rk.data(),1) * alphak /
             betak_denom / omegak;
-    BLAS::axpby(n, one,rk.data(),1, betak,pk.data(),1);
-    BLAS::axpby(n, -betak*omegak,vk.data(),1, one,pk.data(),1);
+    BLAS::scal(n, betak,pk.data(),1);
+    BLAS::axpy(n, one,rk.data(),1, pk.data(),1);
+    BLAS::axpy(n, -betak*omegak,vk.data(),1, pk.data(),1);
   }
 }
 

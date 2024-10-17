@@ -48,16 +48,18 @@ int main()
   //-----------------------------------------------
   //test on complex matrix 14k x 14k and 1 rhs
   using MatrixType = MyMatrixX<std::complex<float>>;
+  using MatrixType2 = MyMatrixX<std::complex<double>>;
   MatrixType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
-  MatrixType A(3,3);    // be resized
+  MatrixType A_d(3,3);    // be resized
 
   read_binary("/home/starman/rhs_alm_722.dat", rhs);
-  read_binary("/home/starman/mat_alm_full.dat", A);
-  Eigen::VectorXcf b = rhs.col(0);
+  read_binary("/home/starman/mat_alm_full.dat", A_d);
+  MatrixType2 A = A_d.cast<std::complex<double>>();  
+  Eigen::VectorXcd b = rhs.col(0).cast<std::complex<double>>();
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << b.rows() << "x" << b.cols() << "\n\n";
-  Eigen::VectorXcf x = Eigen::VectorXcf::Zero(b.rows()); 
-  bcg<MatrixType, Eigen::VectorXcf>(A, b, x, 0.01);
+  Eigen::VectorXcd x = Eigen::VectorXcd::Zero(b.rows()); 
+  bcg<MatrixType2, Eigen::VectorXcd>(A, b, x, 0.01);
   write_binary("../output/BiCGSTAB_solution.dat", x, b.rows(), b.cols());
   //-----------------------------------------------
 
