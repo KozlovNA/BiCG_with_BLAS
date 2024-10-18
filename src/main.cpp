@@ -8,7 +8,7 @@
 int main()
 {
   //-----------------------------------------------
-  //simplest test on 3x3 matrix
+  //!simplest test on 3x3 matrix
   // using VectorType = Eigen::VectorXd;
   // using MatrixType = MyMatrixX<double>;
 
@@ -27,7 +27,7 @@ int main()
   // std::cout << x << "\n"; 
   //precise solution: 3, -2, 2
   //-----------------------------------------------
-  //simplest test on 3x3 matrix
+  //!simplest test on 3x3 matrix
   // using VectorType = Eigen::VectorXcf;
   // using MatrixType = MyMatrixX<std::complex<float>>;
   // using T = std::complex<float>;
@@ -46,21 +46,36 @@ int main()
   // std::cout << x << "\n"; 
   //precise solution: 3, -2, 2
   //-----------------------------------------------
-  //test on complex matrix 14k x 14k and 1 rhs
+  //!test test on complex matrix 14k x 14k and 1 rhs with single precision
+  using VectorType = Eigen::VectorXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
-  using MatrixType2 = MyMatrixX<std::complex<double>>;
-  MatrixType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
-  MatrixType A_d(3,3);    // be resized
+  VectorType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
+  MatrixType A(3,3);    // be resized
 
   read_binary("/home/starman/rhs_alm_722.dat", rhs);
-  read_binary("/home/starman/mat_alm_full.dat", A_d);
-  MatrixType2 A = A_d.cast<std::complex<double>>();  
-  Eigen::VectorXcd b = rhs.col(0).cast<std::complex<double>>();
+  read_binary("/home/starman/mat_alm_full.dat", A);
+  VectorType b = rhs.col(0);
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << b.rows() << "x" << b.cols() << "\n\n";
-  Eigen::VectorXcd x = Eigen::VectorXcd::Zero(b.rows()); 
-  bcg<MatrixType2, Eigen::VectorXcd>(A, b, x, 0.01);
+  VectorType x = VectorType::Zero(b.rows()); 
+  ebcg<MatrixType, VectorType>(A, b, x, 0.01);
   write_binary("../output/BiCGSTAB_solution.dat", x, b.rows(), b.cols());
+  //-----------------------------------------------
+  //!test on complex matrix 14k x 14k and 1 rhs with double precision
+  // using MatrixType = MyMatrixX<std::complex<float>>;
+  // using MatrixType2 = MyMatrixX<std::complex<double>>;
+  // MatrixType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
+  // MatrixType A_d(3,3);    // be resized
+
+  // read_binary("/home/starman/rhs_alm_722.dat", rhs);
+  // read_binary("/home/starman/mat_alm_full.dat", A_d);
+  // MatrixType2 A = A_d.cast<std::complex<double>>();  
+  // Eigen::VectorXcd b = rhs.col(0).cast<std::complex<double>>();
+  // std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  // std::cout << "b is " << b.rows() << "x" << b.cols() << "\n\n";
+  // Eigen::VectorXcd x = Eigen::VectorXcd::Zero(b.rows()); 
+  // ebcg<MatrixType2, Eigen::VectorXcd>(A, b, x, 0.01);
+  // write_binary("../output/BiCGSTAB_solution.dat", x, b.rows(), b.cols());
   //-----------------------------------------------
 
 
