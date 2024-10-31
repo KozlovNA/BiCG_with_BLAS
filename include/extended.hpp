@@ -21,6 +21,7 @@ struct ExtendedTypesMap<std::complex<float>> { typedef std::complex<double> TYPE
 template <>
 struct ExtendedTypesMap<std::complex<double>> { typedef std::complex<long double> TYPE; };
 
+//! Suspicious that it does not work
 template<class T>
 using is_complex = std::is_same<std::complex<T>, T>;
 

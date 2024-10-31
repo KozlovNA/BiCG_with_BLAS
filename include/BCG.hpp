@@ -23,7 +23,6 @@ void bcg (const MT      &A,
   T one = 1;
   T m_one = -1;
 
-
   //initializing algorythm 
   std::vector<T> rk(n);
   A.template matvec<VT, std::vector<T>>(x, n, rk);
@@ -152,8 +151,7 @@ void ebcg (const MT      &A,
   //variables needed in main loop
   std::vector<T> vk(n);
   T alphak;
-  std::vector<T> tk(n);
-  T wk;
+  std::vector<T> tk(n);     
   T betak;
   eT betak_denom;
   T omegak;
