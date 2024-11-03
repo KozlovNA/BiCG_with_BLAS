@@ -87,7 +87,7 @@ int main()
 
   read_binary("/home/starman/rhs_alm_722.dat", rhs);
   read_binary("/home/starman/mat_alm_full.dat", A);
-  RHSType B = rhs.col(0);
+  RHSType B = rhs.leftCols(2);
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
   int N = B.rows();
