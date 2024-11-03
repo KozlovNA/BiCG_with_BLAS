@@ -58,7 +58,9 @@ void bbcg(const AT      &A,
   std::vector<T> alpha_system(s*s);
 
   std::vector<T> Tk(N*s);
-  T omegak;
+  
+  std::vector<T> omega_system(N*s);
+  std::vector<T> omegak(N*s);
 
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
 
@@ -125,17 +127,25 @@ void bbcg(const AT      &A,
 
     //T_k = A S_k                
     bmatvec(A, Rk, N,s, Tk);
-    //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
-    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    // ||T_k omega_k - S_k||_F -> min
+    BLAS::copy(N*s, Tk.data(),1, omega_system.data(),1);
+    BLAS::copy(N*s, Rk.data(),1, omegak.data(),1);
+    qr_solve<T>(LAPACK_COL_MAJOR, N, s, s, omega_system.data(), omegak.data());
     //X_(k+1) = X_k + P_k alpha_k
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);
-    //X_(k+1) += omega_k S_k               
-    BLAS::axpy(N*s, omegak, Rk.data(), 1, X.data(), 1);
-    //R_(k+1) = Sk - omega_k T_k
-    BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
+    //X_(k+1) += S_k omega_k                
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+                N, s, s,
+                &one, Rk.data(), N, omegak.data(), s,
+                &one, X.data(), N);
+    //R_(k+1) = Sk - T_k omega_k 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+                N, s, s,
+                &m_one, Tk.data(), N, omegak.data(), s,
+                &one, Rk.data(), N);
 
     //output 1/2
     matvec_count+=s;
@@ -173,10 +183,15 @@ void bbcg(const AT      &A,
                 &one, Pk.data(), N, alpha.data(), s,
                 &zero, Tk.data(), N);
     BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);
-    T m_omegak = -omegak;
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    //betak_k omega_k
+    CBLAS::gemm(CblasColMajor, CblasTrans, CblasNoTrans, 
+                s, s, s,
+                &m_one, alpha.data(), s, omegak.data(), s,
+                &zero, alpha_system.data(), s);
+    //P_(k+1) -= V_k beta_k omega_k             
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
-                &m_omegak, Vk.data(), N, alpha.data(), s,
+                &one, Vk.data(), N, alpha_system.data(), s,
                 &one, Pk.data(), N);
     BLAS::axpy(N*s, one,Rk.data(),1, Pk.data(),1);              
 } 
@@ -246,6 +261,7 @@ void qr_solve(int         matrix_layout,
               T          *A,
               T          *B              )
 {
+  assert(m >= n);
   char Ad = 'T';
   if constexpr (std::is_same_v<std::complex<float>, T> ||
                 std::is_same_v<std::complex<double>, T> ||
@@ -253,29 +269,28 @@ void qr_solve(int         matrix_layout,
   {
     Ad = 'C';
   }
-  // if (matrix_layout == LAPACK_COL_MAJOR){
+  if (matrix_layout == LAPACK_COL_MAJOR){
+      
+    std::unique_ptr<T[]> TAU(new T[n]);
 
-  // std::unique_ptr<T[]> TAU(new T[n]);
+    //performing QR factorization and store it in A in a packed form
+    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
+    //substituting B with Q**H B 
+    LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
 
-  // //performing QR factorization and store it in A in a packed form
-  // LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU);
-  // //substituting B with Q**H B 
-  // LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU, B, m);
-
-  // //cutting the system to get RX = Q_cut**H*B
-  // for (int i = 0; i < n; i++)
-  //   std::memcpy(A + i*n, A + i*m, (i+1)*sizeof(T));
-  // for (int i = 0; i < s; i++)
-  //   std::memcpy(B + i*n, B + i*m, (n)*sizeof(T));
-
-  // std::memcpy(Eigen_R.data(), R.get(), (n*n)*sizeof(T));
-  // LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, R.get(), n, QhB.get(), n); 
-  //}
-  assert(matrix_layout == LAPACK_ROW_MAJOR);
+    //cutting the system to get RX = Q_cut**H*B
+    for (int i = 0; i < n; i++)
+      std::memcpy(A + i*n, A + i*m, (i+1)*sizeof(T));
+    for (int i = 0; i < s; i++)
+      std::memcpy(B + i*n, B + i*m, (n)*sizeof(T));
+    //solving system  RX = Q_cut**H*B
+    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, n, B, n); 
+  } else {
   std::unique_ptr<T[]> TAU(new T[n]);
   LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
   LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
   LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
+  }
 } 
 
 float max2norm(int matrix_layout,
