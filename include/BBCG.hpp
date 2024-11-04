@@ -186,7 +186,7 @@ void bbcg(const AT      &A,
     //betak_k omega_k
     CBLAS::gemm(CblasColMajor, CblasTrans, CblasNoTrans, 
                 s, s, s,
-                &m_one, alpha.data(), s, omegak.data(), s,
+                &m_one, omegak.data(), s, alpha.data(), s,
                 &zero, alpha_system.data(), s);
     //P_(k+1) -= V_k beta_k omega_k             
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
