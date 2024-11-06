@@ -10,22 +10,22 @@ int main()
 {
   //-----------------------------------------------
   //! simplest test on 3x3 matrix
-  using VectorType = Eigen::VectorXd;
-  using MatrixType = MyMatrixX<double>;
+  // using VectorType = Eigen::VectorXd;
+  // using MatrixType = MyMatrixX<double>;
 
-  MatrixType A(3,3);
-  A << 2, 3, 5,
-       3, 7, 4,
-       1, 2, 2;
+  // MatrixType A(3,3);
+  // A << 2, 3, 5,
+  //      3, 7, 4,
+  //      1, 2, 2;
 
-  VectorType b(6);
-  b << 10, 3, 3, 0, 1, 0;
+  // VectorType b(6);
+  // b << 10, 3, 3, 0, 1, 0;
 
-  VectorType x(6);
-  x << 0, 0, 0, 0, 0, 0;
+  // VectorType x(6);
+  // x << 0, 0, 0, 0, 0, 0;
 
-  bbcg<MatrixType, VectorType>(A, b,3, 2, x, 0.01);
-  std::cout << x << "\n"; 
+  // bbcg<MatrixType, VectorType>(A, b,3, 2, x, 0.01);
+  // std::cout << x << "\n"; 
   // precise solution: 3, -2, 2
   //-----------------------------------------------
   //! simplest test on 3x3 matrix
@@ -79,25 +79,25 @@ int main()
   // write_binary("../output/BiCGSTAB_solution.dat", x, b.rows(), b.cols());
   //-----------------------------------------------
   //! bbcg test on complex matrix 14k x 14k and 1 rhs with single precision
-  // using RHSType = Eigen::MatrixXcf;
-  // using MatrixType = MyMatrixX<std::complex<float>>;
-  // using VectorType = Eigen::VectorXcf;
-  // RHSType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
-  // MatrixType A(3,3);    // be resized
+  using RHSType = Eigen::MatrixXcf;
+  using MatrixType = MyMatrixX<std::complex<float>>;
+  using VectorType = Eigen::VectorXcf;
+  RHSType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
+  MatrixType A(3,3);    // be resized
 
-  // read_binary("/home/starman/rhs_alm_722.dat", rhs);
-  // read_binary("/home/starman/mat_alm_full.dat", A);
-  // RHSType B = rhs.leftCols(2);
-  // std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
-  // std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
-  // int N = B.rows();
-  // int s = B.cols();
-  // RHSType X = RHSType::Zero(N, s);
+  read_binary("/home/starman/rhs_alm_722.dat", rhs);
+  read_binary("/home/starman/mat_alm_full.dat", A);
+  RHSType B = rhs.leftCols(3);
+  std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
+  int N = B.rows();
+  int s = B.cols();
+  RHSType X = RHSType::Zero(N, s);
 
-  // VectorType X_v = X.reshaped();
-  // VectorType B_v = B.reshaped();
+  VectorType X_v = X.reshaped();
+  VectorType B_v = B.reshaped();
 
-  // bcg<MatrixType, VectorType>(A, B_v, X_v, 0.01);
+  bbcg<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
   // write_binary("../output/BiCGSTAB_solution.dat", X, B.rows(), B.cols());
   return 0;
 }

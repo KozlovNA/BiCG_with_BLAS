@@ -38,12 +38,15 @@ void bbcg(const AT      &A,
   auto start = std::chrono::high_resolution_clock::now();
 
   //initializing algorythm
+  std::unique_ptr<T[]> tau(new T[s]);
   std::vector<T> Rk(N*s);
   bmatvec(A, X, N, s, Rk);
   matvec_count+=s;
 
   BLAS::rscal(N*s, -1, Rk.data(),1);
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
+  LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
+  LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
 
   std::vector<T> Pk(N*s);
   BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);
@@ -66,9 +69,12 @@ void bbcg(const AT      &A,
   //main loop
   for (int k = 0; k < (N+s-1)/s; k++)
   {
-    
+    //Pk -> Pk * U^{-1}
+    LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
+    LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
     //V_k = A P_k
     bmatvec(A, Pk, N, s, Vk);
+    
 
     //alpha_system = R_0c**H V_k
     CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
