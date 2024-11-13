@@ -2,10 +2,10 @@
 #include<cblas.h>
 #include<Eigen/Dense>
 #include<vector>
-#include<BCG.hpp>
+#include<BCGStab.hpp>
 #include<MyMat.hpp>
 #include<fbinio.hpp>
-#include<BBCG.hpp>
+#include<BBCGStab.hpp>
 int main()
 {
   //-----------------------------------------------
