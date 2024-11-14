@@ -83,7 +83,7 @@ void bbcgsr(const AT      &A,
     //Pk -> Pk * U^{-1}
     // LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
     // LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
-    //obtain (P^hat**H P_0)**-1
+    //obtain (P^hat**H P_k)**-1
     std::vector<T> Eines(s*s);
     for (int i = 0; i < s; i++) Eines[s*i + i] = 1;
     CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,
@@ -91,11 +91,12 @@ void bbcgsr(const AT      &A,
                 &one, P_hat.data(), N, Pk.data(), N,
                 &zero, alpha_system.data(), s);
     qr_solve<T>(LAPACK_COL_MAJOR, s,s,s, alpha_system.data(), Eines.data());
-    //P_0 = R_0 (P^hat**H R_0)**-1
+    //P_k = P_k (P^hat**H P_k)**-1
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
                 N,s,s,
-                &one, Rk.data(),N, Eines.data(),s,
-                &zero, Pk.data(), N);
+                &one, Pk.data(),N, Eines.data(),s,
+                &zero, Tk.data(), N);
+    BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);            
     //V_k = A P_k
     bmatvec(A, Pk, N,s, Vk);
     
@@ -110,15 +111,6 @@ void bbcgsr(const AT      &A,
                 s, s, N, 
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
-  //   //------check--------
-  // // if (k = 0){
-  //// std::cout << "\ncheck=";
-  //// for (auto v: Vk)
-  //// {
-  // //   std::cout << v << " ";
-  // // }
-  // // std::cout << "\n\n";//}
-  // // //---------------------  
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
     qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
 
@@ -150,6 +142,15 @@ void bbcgsr(const AT      &A,
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);
+  //   //------check--------
+  // // if (k = 0){
+  //// std::cout << "\ncheck=";
+  //// for (auto v: Vk)
+  //// {
+  // //   std::cout << v << " ";
+  // // }
+  // // std::cout << "\n\n";//}
+  // // //---------------------  
 
     //output 1/2
     matvec_count+=s;
@@ -341,6 +342,7 @@ void qr_solve(int         matrix_layout,
               T          *A,
               T          *B              )
 {
+  assert(m >= n);
   char Ad = 'T';
   if constexpr (std::is_same_v<std::complex<float>, T> ||
                 std::is_same_v<std::complex<double>, T> ||
@@ -348,44 +350,29 @@ void qr_solve(int         matrix_layout,
   {
     Ad = 'C';
   }
-  // if (matrix_layout == LAPACK_COL_MAJOR){
+  if (matrix_layout == LAPACK_COL_MAJOR){
+      
+    std::unique_ptr<T[]> TAU(new T[n]);
 
-  // std::unique_ptr<T[]> TAU(new T[n]);
+    //performing QR factorization and store it in A in a packed form
+    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
+    //substituting B with Q**H B 
+    LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
 
-  // //performing QR factorization and store it in A in a packed form
-  // LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU);
-  // //substituting B with Q**H B 
-  // LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU, B, m);
-
-  // //cutting the system to get RX = Q_cut**H*B
-  // for (int i = 0; i < n; i++)
-  //   std::memcpy(A + i*n, A + i*m, (i+1)*sizeof(T));
-  // for (int i = 0; i < s; i++)
-  //   std::memcpy(B + i*n, B + i*m, (n)*sizeof(T));
-
-  // std::memcpy(Eigen_R.data(), R.get(), (n*n)*sizeof(T));
-  // LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, R.get(), n, QhB.get(), n); 
-  //}
-  assert(matrix_layout == LAPACK_ROW_MAJOR);
+    //cutting the system to get RX = Q_cut**H*B
+    for (int i = 0; i < n; i++)
+      std::memcpy(A + i*n, A + i*m, (i+1)*sizeof(T));
+    for (int i = 0; i < s; i++)
+      std::memcpy(B + i*n, B + i*m, (n)*sizeof(T));
+    //solving system  RX = Q_cut**H*B
+    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, n, B, n); 
+  } else {
   std::unique_ptr<T[]> TAU(new T[n]);
   LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
   LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
   LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
-} 
-
-float max2norm(int matrix_layout,
-               int N, int s,
-               const float *Mat)
-{
-  assert(matrix_layout == LAPACK_COL_MAJOR);
-  std::vector<float> R_norms(s, 0);
-  for (int i = 0; i < s; i++)
-  {
-    R_norms[i] = BLAS::nrm2(N, Mat + i*N,1);
   }
-  float res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
-  return res_2norm_max;
-}
+} 
 
 double max2norm(int matrix_layout,
                int N, int s,
