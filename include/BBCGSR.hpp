@@ -66,6 +66,8 @@ void bbcgsr(const AT      &A,
   std::vector<T> Tk(N*s);
   T omegak;
 
+  std::vector<T> Reor_helper(N*s);
+
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
 
 
@@ -120,7 +122,7 @@ void bbcgsr(const AT      &A,
     //alpha_rhs = R0с**H S_k
     CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
                 s, s, N, 
-                &one, R0c.data(), N, Sk.data(), N,
+                &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
     qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
@@ -152,20 +154,34 @@ void bbcgsr(const AT      &A,
     //T_k = A S_k                
     bmatvec(A, Rk, N,s, Tk);
 
-    //counting omega with reorthogonalization
     //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    //X_(k+1) = X_k + P_k alpha_k
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+                N, s, s,
+                &one, Pk.data(), N, alpha.data(), s,
+                &one, X.data(), N);
     //X_(k+1) += omega_k S_k               
     BLAS::axpy(N*s, omegak, Rk.data(), 1, X.data(), 1);
     //R_(k+1) = Sk - omega_k T_k
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
-    //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
-    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    //X_(k+1) += omega_k S_k               
-    BLAS::axpy(N*s, omegak, Rk.data(), 1, X.data(), 1);
-    //R_(k+1) = Sk - omega_k T_k
-    BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
-    
+
+
+    // //counting omega with reorthogonalization
+    // BLAS::copy(N*s, Rk.data(),1, Reor_helper.data(),1);
+    // //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
+    // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    // //X_(k+1) += omega_k S_k               
+    // BLAS::axpy(N*s, omegak, Reor_helper.data(), 1, X.data(), 1);
+    // //R_(k+1) = Sk - omega_k T_k
+    // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
+    // //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
+    // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    // //X_(k+1) += omega_k S_k               
+    // BLAS::axpy(N*s, omegak, Reor_helper.data(), 1, X.data(), 1);
+    // //R_(k+1) = Sk - omega_k T_k
+    // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
+
     //output 1
     matvec_count+=s;
     rk_max2norm_rel = max2norm(CblasColMajor, N, s, Rk.data())/
