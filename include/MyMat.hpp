@@ -47,6 +47,16 @@ public:
     T zero = 0;
     BLAS::gemv('N', n, n, one, (*this).data(), n, x.data(), 1, zero, res.data(), 1);
   }
+  
+  template<class VT, class RT>
+  void cmatvec(const VT   &x,
+               const int  &n,
+               RT         &res) const
+  {
+    T one = 1;
+    T zero = 0;
+    BLAS::gemv('C', n, n, one, (*this).data(), n, x.data(), 1, zero, res.data(), 1);
+  }
 
 };
 

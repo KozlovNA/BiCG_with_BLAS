@@ -37,6 +37,20 @@ void bbcgsr(const AT      &A,
 
   auto start = std::chrono::high_resolution_clock::now();
 
+  //variables needed in main loop
+  std::vector<T> Vk(N*s);
+  
+  std::vector<T> alpha(s*s);
+  std::vector<T> alpha_system(s*s);
+
+  std::vector<T> Tk(N*s);
+  T omegak;
+  T sum_omegak;
+
+  std::vector<T> Sk(N*s);
+  std::vector<T> Reor_helper(N*s);
+  std::vector<T> Wk(N*s);
+
   //initializing algorythm
   //R_0 = B - A X 
   std::vector<T> Rk(N*s);
@@ -49,26 +63,16 @@ void bbcgsr(const AT      &A,
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
   LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
-  //P_0 = R_0
-  std::vector<T> Pk(N*s);
-  BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);
 
   //R0c = R_0 
   std::vector<T> R0c(N*s);
   BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);
 
-  //variables needed in main loop
-  std::vector<T> Vk(N*s);
-  
-  std::vector<T> alpha(s*s);
-  std::vector<T> alpha_system(s*s);
-
-  std::vector<T> Tk(N*s);
-  T omegak;
-
-  std::vector<T> Sk(N*s);
-  std::vector<T> Reor_helper(N*s);
-  std::vector<T> Wk(N*s);
+  //P_0 = R_0
+  std::vector<T> Pk(N*s);
+  //P^hat = A**H R0c
+  std::vector<T> P_hat(N*s);
+  bcmatvec(A, R0c, N,s, P_hat);
 
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
 
@@ -77,10 +81,23 @@ void bbcgsr(const AT      &A,
   for (int k = 0; k < (N+s-1)/s; k++)
   {
     //Pk -> Pk * U^{-1}
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
-    LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
+    // LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
+    // LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
+    //obtain (P^hat**H P_0)**-1
+    std::vector<T> Eines(s*s);
+    for (int i = 0; i < s; i++) Eines[s*i + i] = 1;
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,
+                s, s, N,
+                &one, P_hat.data(), N, Pk.data(), N,
+                &zero, alpha_system.data(), s);
+    qr_solve<T>(LAPACK_COL_MAJOR, s,s,s, alpha_system.data(), Eines.data());
+    //P_0 = R_0 (P^hat**H R_0)**-1
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
+                N,s,s,
+                &one, Rk.data(),N, Eines.data(),s,
+                &zero, Pk.data(), N);
     //V_k = A P_k
-    bmatvec(A, Pk, N, s, Vk);
+    bmatvec(A, Pk, N,s, Vk);
     
     //calculating alpha with reorthogonalization
     //alpha_system = R_0c**H V_k
@@ -156,34 +173,22 @@ void bbcgsr(const AT      &A,
     //T_k = A S_k                
     bmatvec(A, Rk, N,s, Tk);
 
+    //calculating omega with reorthogonalization
     BLAS::copy(N*s, Rk.data(),1, Sk.data(),1);
     //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    //X_(k+1) = X_k + P_k alpha_k
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
-                N, s, s,
-                &one, Pk.data(), N, alpha.data(), s,
-                &one, X.data(), N);
+    sum_omegak = omegak;
     //X_(k+1) += omega_k S_k               
-    BLAS::axpy(N*s, omegak, Rk.data(), 1, X.data(), 1);
+    BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
     //R_(k+1) = Sk - omega_k T_k
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
-
-
-    // //calculating omega with reorthogonalization
-    // BLAS::copy(N*s, Rk.data(),1, Sk.data(),1);
-    // //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
-    // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    // //X_(k+1) += omega_k S_k               
-    // BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
-    // //R_(k+1) = Sk - omega_k T_k
-    // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
-    // //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
-    // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    // //X_(k+1) += omega_k S_k               
-    // BLAS::axpy(N*s, omegak, Reor_helper.data(), 1, X.data(), 1);
-    // //R_(k+1) -= omega_k T_k
-    // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
+    //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
+    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    sum_omegak+=omegak;
+    //X_(k+1) += omega_k S_k               
+    BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
+    //R_(k+1) -= omega_k T_k
+    BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
 
     //output 1
     matvec_count+=s;
@@ -250,10 +255,9 @@ void bbcgsr(const AT      &A,
                 &one, Vk.data(), N, alpha.data(), s,
                 &one, Wk.data(), N); 
     //P_{k+1} -= omega_k W_k                
-    BLAS::axpy(N*s, -omegak,Wk.data(),1, Reor_helper.data(),1);     
+    BLAS::axpy(N*s, -sum_omegak,Wk.data(),1, Reor_helper.data(),1);     
     BLAS::copy(N*s, Reor_helper.data(), 1, Pk.data(),1);         
 } 
-
 
 }
 
@@ -280,6 +284,24 @@ void bmatvec(const AT      &A,
   }
 }
 
+template<class AT, class VT1, class VT2>
+void bcmatvec(const AT      &A,
+             const VT1     &X,
+             const int     &N,
+             const int     &s,
+             VT2           &Res)
+{
+  using T = std::decay<decltype(*X.begin())>::type;
+  std::vector<T> rtmp(N);
+  std::vector<T> xtmp(N);
+
+  for(int i = 0; i < s; i++)
+  {
+    std::copy(X.begin()+i*N, X.begin()+(i+1)*N, xtmp.begin());
+    A.template cmatvec(xtmp, N, rtmp);
+    std::copy(rtmp.begin(), rtmp.end(), Res.begin() + i*N);
+  }
+}
 
 template <class T>
 void qr (T *Q, T *R, T *A, const size_t m, const size_t n) {

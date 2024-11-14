@@ -6,6 +6,7 @@
 #include<MyMat.hpp>
 #include<fbinio.hpp>
 #include<BBCGSR.hpp>
+// #include<BBCGStab.hpp>
 int main()
 {
   //-----------------------------------------------
@@ -87,7 +88,7 @@ int main()
 
   read_binary("/home/starman/rhs_alm_722.dat", rhs);
   read_binary("/home/starman/mat_alm_full.dat", A);
-  RHSType B = rhs.leftCols(5);
+  RHSType B = rhs.leftCols(3);
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
   int N = B.rows();

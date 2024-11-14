@@ -1,5 +1,5 @@
-#ifndef BBCG_HPP
-#define BBCG_HPP
+#ifndef BBCGSR_HPP
+#define BBCGSR_HPP
 
 #include<vector>
 #include<CXXBLAS.hpp>
@@ -70,8 +70,9 @@ void bbcg(const AT      &A,
   for (int k = 0; k < (N+s-1)/s; k++)
   {
     //Pk -> Pk * U^{-1}
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
-    LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
+    // LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
+    // LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
+    
     //V_k = A P_k
     bmatvec(A, Pk, N, s, Vk);
     
