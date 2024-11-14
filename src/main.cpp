@@ -5,7 +5,7 @@
 #include<BCGStab.hpp>
 #include<MyMat.hpp>
 #include<fbinio.hpp>
-#include<BBCGStab.hpp>
+#include<BBCGSR.hpp>
 int main()
 {
   //-----------------------------------------------
@@ -97,7 +97,7 @@ int main()
   VectorType X_v = X.reshaped();
   VectorType B_v = B.reshaped();
 
-  bbcg<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
+  bbcgsr<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
   // write_binary("../output/BiCGSTAB_solution.dat", X, B.rows(), B.cols());
   return 0;
 }
