@@ -66,7 +66,9 @@ void bbcgsr(const AT      &A,
   std::vector<T> Tk(N*s);
   T omegak;
 
+  std::vector<T> Sk(N*s);
   std::vector<T> Reor_helper(N*s);
+  std::vector<T> Wk(N*s);
 
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
 
@@ -80,7 +82,7 @@ void bbcgsr(const AT      &A,
     //V_k = A P_k
     bmatvec(A, Pk, N, s, Vk);
     
-    //counting alpha with reorthogonalization
+    //calculating alpha with reorthogonalization
     //alpha_system = R_0c**H V_k
     CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
                 s, s, N, 
@@ -154,6 +156,7 @@ void bbcgsr(const AT      &A,
     //T_k = A S_k                
     bmatvec(A, Rk, N,s, Tk);
 
+    BLAS::copy(N*s, Rk.data(),1, Sk.data(),1);
     //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     //X_(k+1) = X_k + P_k alpha_k
@@ -167,19 +170,19 @@ void bbcgsr(const AT      &A,
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
 
 
-    // //counting omega with reorthogonalization
-    // BLAS::copy(N*s, Rk.data(),1, Reor_helper.data(),1);
+    // //calculating omega with reorthogonalization
+    // BLAS::copy(N*s, Rk.data(),1, Sk.data(),1);
     // //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
     // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     // //X_(k+1) += omega_k S_k               
-    // BLAS::axpy(N*s, omegak, Reor_helper.data(), 1, X.data(), 1);
+    // BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
     // //R_(k+1) = Sk - omega_k T_k
     // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
     // //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
     // omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     // //X_(k+1) += omega_k S_k               
     // BLAS::axpy(N*s, omegak, Reor_helper.data(), 1, X.data(), 1);
-    // //R_(k+1) = Sk - omega_k T_k
+    // //R_(k+1) -= omega_k T_k
     // BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
 
     //output 1
@@ -201,6 +204,7 @@ void bbcgsr(const AT      &A,
     }
     //------
 
+    //calculating beta with reorthogonalization
     //beta_system = alpha_system
     CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
                 s, s, N, 
@@ -212,18 +216,42 @@ void bbcgsr(const AT      &A,
                 &m_one, R0c.data(), N, Tk.data(), N,
                 &zero, alpha.data(), s);
     qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
-    //P_k = R_(k+1) + (P(k) - omega_k V_k) * beta_k
+    //P_{k+1} = S_k + P_k beta_k
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
-                &zero, Tk.data(), N);
-    BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);
-    T m_omegak = -omegak;
+                &zero, Reor_helper.data(), N);
+    BLAS::axpy(N*s, 1.0,Sk.data(),1, Reor_helper.data(),1);
+    //W_k = T_k + V_k beta_k
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
                 N, s, s,
-                &m_omegak, Vk.data(), N, alpha.data(), s,
-                &one, Pk.data(), N);
-    BLAS::axpy(N*s, one,Rk.data(),1, Pk.data(),1);              
+                &one, Vk.data(), N, alpha.data(), s,
+                &zero, Wk.data(), N);
+    BLAS::axpy(N*s, 1.0, Tk.data(),1, Wk.data(),1);
+    //beta_system = alpha_system
+    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+                s, s, N, 
+                &one, R0c.data(), N, Vk.data(), N, 
+                &zero, alpha_system.data(), s);
+    //beta_rhs = - R0с**H T_k
+    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+                s, s, N, 
+                &m_one, R0c.data(), N, Wk.data(), N,
+                &zero, alpha.data(), s);
+    qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    //P_{k+1} += Pk beta_k
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+                N, s, s,
+                &one, Pk.data(), N, alpha.data(), s,
+                &one, Reor_helper.data(), N);
+    //W_k += V_k beta_k            
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+                N, s, s,
+                &one, Vk.data(), N, alpha.data(), s,
+                &one, Wk.data(), N); 
+    //P_{k+1} -= omega_k W_k                
+    BLAS::axpy(N*s, -omegak,Wk.data(),1, Reor_helper.data(),1);     
+    BLAS::copy(N*s, Reor_helper.data(), 1, Pk.data(),1);         
 } 
 
 
