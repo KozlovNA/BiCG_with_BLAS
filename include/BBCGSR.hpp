@@ -59,7 +59,7 @@ void bbcgsr(const AT      &A,
 
   //orthorgonizing R_0
   std::unique_ptr<T[]> tau(new T[s]);
-  BLAS::rscal(N*s, -1, Rk.data(),1);
+  BLAS::rscal(N*s, -1.0, Rk.data(),1);
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
   LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
@@ -70,6 +70,7 @@ void bbcgsr(const AT      &A,
 
   //P_0 = R_0
   std::vector<T> Pk(N*s);
+  BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);
   //P^hat = A**H R0c
   std::vector<T> P_hat(N*s);
   bcmatvec(A, R0c, N,s, P_hat);
@@ -102,46 +103,51 @@ void bbcgsr(const AT      &A,
     
     //calculating alpha with reorthogonalization
     //alpha_system = R_0c**H V_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Vk.data(), N, 
                 &zero, alpha_system.data(), s);
     //alpha_rhs = R0с**H R_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
-    qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
 
     //S_k = R_k - V_k alpha_k
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &m_one, Vk.data(), N, alpha.data(), s,
                 &one, Rk.data(), N);
     //X += P_k alpha
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);  
 
     //alpha_system = R_0c**H V_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Vk.data(), N, 
                 &zero, alpha_system.data(), s);
     //alpha_rhs = R0с**H S_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
-    qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
     //X += P_k alpha
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);
+    //S_k = R_k - V_k alpha_k
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+                N, s, s,
+                &m_one, Vk.data(), N, alpha.data(), s,
+                &one, Rk.data(), N);            
   //   //------check--------
   // // if (k = 0){
   //// std::cout << "\ncheck=";
@@ -177,14 +183,16 @@ void bbcgsr(const AT      &A,
     //calculating omega with reorthogonalization
     BLAS::copy(N*s, Rk.data(),1, Sk.data(),1);
     //omega_k = <T_k, S_k>_F / <T_k, T_k>_F            
-    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/
+             BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     sum_omegak = omegak;
     //X_(k+1) += omega_k S_k               
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
     //R_(k+1) = Sk - omega_k T_k
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);
     //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F            
-    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
+    omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/
+             BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     sum_omegak+=omegak;
     //X_(k+1) += omega_k S_k               
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
@@ -212,46 +220,46 @@ void bbcgsr(const AT      &A,
 
     //calculating beta with reorthogonalization
     //beta_system = alpha_system
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Vk.data(), N, 
                 &zero, alpha_system.data(), s);
     //beta_rhs = - R0с**H T_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &m_one, R0c.data(), N, Tk.data(), N,
                 &zero, alpha.data(), s);
-    qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
     //P_{k+1} = S_k + P_k beta_k
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &zero, Reor_helper.data(), N);
     BLAS::axpy(N*s, 1.0,Sk.data(),1, Reor_helper.data(),1);
     //W_k = T_k + V_k beta_k
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Vk.data(), N, alpha.data(), s,
                 &zero, Wk.data(), N);
     BLAS::axpy(N*s, 1.0, Tk.data(),1, Wk.data(),1);
     //beta_system = alpha_system
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &one, R0c.data(), N, Vk.data(), N, 
                 &zero, alpha_system.data(), s);
     //beta_rhs = - R0с**H T_k
-    CBLAS::gemm(CblasRowMajor, CblasConjNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans, 
                 s, s, N, 
                 &m_one, R0c.data(), N, Wk.data(), N,
                 &zero, alpha.data(), s);
-    qr_solve<T>(LAPACK_ROW_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
     //P_{k+1} += Pk beta_k
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, Reor_helper.data(), N);
     //W_k += V_k beta_k            
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
                 &one, Vk.data(), N, alpha.data(), s,
                 &one, Wk.data(), N); 
@@ -304,33 +312,6 @@ void bcmatvec(const AT      &A,
   }
 }
 
-template <class T>
-void qr (T *Q, T *R, T *A, const size_t m, const size_t n) {
-    assert(m >= n);
-    std::size_t k = std::max(std::size_t(1), std::min(m, n)); // The number of elementary reflectors
-
-    std::unique_ptr<T[]> tau(new T[k]); // Scalars that define elementary reflectors
-
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, tau.get());
-
-    // Generate R matrix
-    for (std::size_t i(0); i < n; ++i) {
-        std::memset(R + i * m + i + 1,0 , (m-i-1) * sizeof(T));
-        std::memcpy(R + i * m, A + i * m, (i+1) * sizeof(T));
-    }
-
-    // Generate Q matrix
-    LAPACKE::gqr(LAPACK_COL_MAJOR, m, k, k, A, m, tau.get());
-
-    if(m == n) {
-        std::memcpy(Q, A, sizeof(T) * (m * m));
-    } else {
-        for(std::size_t i(0); i < k; ++i) {
-            std::memcpy(Q + i * m, A + i * m, sizeof(T) * (m));
-        }
-    }
-}
-
 // Solves system A X = B with least squares method
 // A - skinny tall m x n matrix 
 // B - rhs matrix m x s
@@ -351,26 +332,16 @@ void qr_solve(int         matrix_layout,
     Ad = 'C';
   }
   if (matrix_layout == LAPACK_COL_MAJOR){
-      
     std::unique_ptr<T[]> TAU(new T[n]);
-
-    //performing QR factorization and store it in A in a packed form
     LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
-    //substituting B with Q**H B 
     LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
-
-    //cutting the system to get RX = Q_cut**H*B
-    for (int i = 0; i < n; i++)
-      std::memcpy(A + i*n, A + i*m, (i+1)*sizeof(T));
-    for (int i = 0; i < s; i++)
-      std::memcpy(B + i*n, B + i*m, (n)*sizeof(T));
-    //solving system  RX = Q_cut**H*B
-    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, n, B, n); 
-  } else {
-  std::unique_ptr<T[]> TAU(new T[n]);
-  LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
-  LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
-  LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
+    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, m, B, m); 
+  }
+  if (matrix_layout == LAPACK_ROW_MAJOR){
+    std::unique_ptr<T[]> TAU(new T[n]);
+    LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
+    LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
+    LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
   }
 } 
 
