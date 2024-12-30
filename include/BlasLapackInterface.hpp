@@ -209,6 +209,26 @@ double lange(int                          matrix_layout,
              int32_t                      lda             )
 {return LAPACKE_zlange(matrix_layout, norm, m, n, a, lda);}
 
+int32_t trcon(int matrix_layout, char norm, char uplo, char diag, 
+             int32_t n, const float *a, int32_t lda, 
+             float *rcond)
+{return LAPACKE_strcon(matrix_layout, norm, uplo, diag, n, a, lda, rcond);}
+
+int32_t trcon(int matrix_layout, char norm, char uplo, char diag, 
+             int32_t n, const double *a, int32_t lda, 
+             double *rcond)
+{return LAPACKE_dtrcon(matrix_layout, norm, uplo, diag, n, a, lda, rcond);}
+
+
+int32_t trcon(int matrix_layout, char norm, char uplo, char diag, 
+             int32_t n, const std::complex<float> *a, int32_t lda, 
+             float *rcond)
+{return LAPACKE_ctrcon(matrix_layout, norm, uplo, diag, n, a, lda, rcond);}
+
+int32_t trcon(int matrix_layout, char norm, char uplo, char diag, 
+             int32_t n, const std::complex<double> *a, int32_t lda, 
+             double *rcond)
+{return LAPACKE_ztrcon(matrix_layout, norm, uplo, diag, n, a, lda, rcond);}
 }
 
 namespace CBLAS

@@ -132,21 +132,58 @@ int main()
 
   // bbcg<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
   // write_binary("../output/BiCGSTAB_solution.dat", X, B.rows(), B.cols());
-    //-----------------------------------------------
-  //! bbcg test on complex matrix 14k x 14k and 1 rhs with single precision
+  //-----------------------------------------------
+  //! bbcg test on complex matrix 14k x 14k and 3 rhs with single precision
+  // using RHSType = Eigen::MatrixXcf;
+  // using MatrixType = MyMatrixX<std::complex<float>>;
+  // using VectorType = Eigen::VectorXcf;
+  // RHSType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
+  // MatrixType A(3,3);    // be resized
+
+  // read_binary("/home/starman/rhs_alm_722.dat", rhs);
+  // read_binary("/home/starman/mat_alm_full.dat", A);
+  
+  // int s = 3;
+  // int interval = 361/s;
+  // int N = rhs.rows();
+  // RHSType B(N, s);
+  // std::cout << "picked columns: "; 
+  // for (int i = 0; i < s; i++)
+  // {
+  //   std::cout << i*360/s << ", ";
+  //   B.col(i) = rhs.col(i*360/s);
+  // }
+  // std::cout << "\n\n";
+
+  // std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  // std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
+  // RHSType X = RHSType::Zero(N, s);
+
+  // VectorType X_v = X.reshaped();
+  // VectorType B_v = B.reshaped();
+
+  // bbcgsr<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
+  //-----------------------------------------------
+  //! bbcg test on complex matrix 14k x 14k and 3 rhs with double precision
   using RHSType = Eigen::MatrixXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
+  using MatrixType2 = MyMatrixX<std::complex<double>>;
   using VectorType = Eigen::VectorXcf;
-  RHSType rhs(3, 3); // "3" is arbitrary, in read_binary() function it will
-  MatrixType A(3,3);    // be resized
+  using VectorType2 = Eigen::VectorXcd;
 
-  read_binary("/home/starman/rhs_alm_722.dat", rhs);
-  read_binary("/home/starman/mat_alm_full.dat", A);
+  RHSType rhs_s(3, 3); // "3" is arbitrary, in read_binary() function it will
+  MatrixType A_s(3,3);    // be resized
+
+  read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
+  read_binary("/home/starman/mat_alm_full.dat", A_s);
   
+  MatrixType2 A = A_s.cast<std::complex<double>>();
+  MatrixType2 rhs = rhs_s.cast<std::complex<double>>();
+
   int s = 3;
   int interval = 361/s;
   int N = rhs.rows();
-  RHSType B(N, s);
+  MatrixType2 B(N, s);
   std::cout << "picked columns: "; 
   for (int i = 0; i < s; i++)
   {
@@ -157,12 +194,12 @@ int main()
 
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
-  RHSType X = RHSType::Zero(N, s);
+  MatrixType2 X = MatrixType2::Zero(N, s);
 
-  VectorType X_v = X.reshaped();
-  VectorType B_v = B.reshaped();
+  VectorType2 X_v = X.reshaped();
+  VectorType2 B_v = B.reshaped();
 
-  bbcgsr<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
-  // write_binary("../output/BiCGSTAB_solution.dat", X, B.rows(), B.cols());
+  bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+
   return 0;
 }

@@ -2,6 +2,8 @@
 #define BBCG_HPP
 
 #include<vector>
+#include<string>
+#include<complex>
 #include<CXXBLAS.hpp>
 // #include<lapacke.h>
 #include<memory>
@@ -35,6 +37,12 @@ void bbcgsr(const AT      &A,
   std::ofstream logs("../output/BBCGSR_logs.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
+  std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
+  alpha_trcon1_out << "k,alpha_trcon1\n";
+
+  std::ofstream beta_trcon1_out("../output/beta_rcon_i.csv", std::ios::out | std::ios::trunc);
+  beta_trcon1_out << "k,beta_trcon1\n";
+
   auto start = std::chrono::high_resolution_clock::now();
 
   //variables needed in main loop
@@ -67,6 +75,10 @@ void bbcgsr(const AT      &A,
   //R0c = R_0 
   std::vector<T> R0c(N*s);
   BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);
+  // for(int i = 0; i < N*s; i++)
+  // {
+  //   R0c[i] = std::conj(R0c[i]);  
+  // }
 
   //P_0 = R_0
   std::vector<T> Pk(N*s);
@@ -137,7 +149,7 @@ void bbcgsr(const AT      &A,
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
-    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data(), alpha_trcon1_out, k, 'I');
     //X += P_k alpha
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
@@ -252,7 +264,7 @@ void bbcgsr(const AT      &A,
                 s, s, N, 
                 &m_one, R0c.data(), N, Wk.data(), N,
                 &zero, alpha.data(), s);
-    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data(), beta_trcon1_out, k, '1');
     //P_{k+1} += Pk beta_k
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
@@ -321,7 +333,7 @@ void qr_solve(int         matrix_layout,
               int32_t     n, 
               int32_t     s,
               T          *A,
-              T          *B              )
+              T          *B)
 {
   assert(m >= n);
   char Ad = 'T';
@@ -342,6 +354,35 @@ void qr_solve(int         matrix_layout,
     LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
     LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
     LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
+  }
+} 
+
+template <class T>
+void qr_solve(int         matrix_layout, 
+              int32_t     m, 
+              int32_t     n, 
+              int32_t     s,
+              T          *A,
+              T          *B,
+              std::ofstream &out,
+              int k,
+              char norm)
+{
+  assert(m >= n);
+  assert(matrix_layout==LAPACK_COL_MAJOR);
+  char Ad = 'T';
+  if constexpr (std::is_same_v<std::complex<float>, T> ||
+                std::is_same_v<std::complex<double>, T> ||
+                std::is_same_v<std::complex<long double>, T>)
+  {
+    Ad = 'C';
+  }
+  if (matrix_layout == LAPACK_COL_MAJOR){
+    std::unique_ptr<T[]> TAU(new T[n]);
+    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
+    LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
+    trcon_write<T>(k, A, n, m, out, norm);
+    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, m, B, m); 
   }
 } 
 
@@ -386,4 +427,13 @@ double max2norm(int matrix_layout,
   double res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
   return res_2norm_max;
 }
+
+template<class T>
+void trcon_write(int k, T *A, int n, int m, std::ofstream &out, char norm)
+{ 
+  double trcon_v = 2.0;
+  LAPACKE::trcon(LAPACK_COL_MAJOR, norm, 'U', 'N', n, A, m, &trcon_v);
+  out << k << "," << trcon_v << "\n";
+} 
+
 #endif
