@@ -4,6 +4,7 @@
 #include<vector>
 #include<string>
 #include<complex>
+#include<algorithm>
 #include<CXXBLAS.hpp>
 // #include<lapacke.h>
 #include<memory>
@@ -11,6 +12,104 @@
 #include<fstream>
 // #include<cblas.h>
 #include<BlasLapackInterface.hpp>
+
+
+double gecon_v (std::complex<double> *A, int s, char norm)
+{
+  std::vector<std::complex<double>> A_clone = {A, A+s*s};
+  std::vector<int> Piv(s);
+  double rcond = 2.0;
+  double anorm = LAPACKE_zlange(LAPACK_COL_MAJOR, norm, s, s, A_clone.data(), s);
+  LAPACKE_zgetrf(LAPACK_COL_MAJOR, s,s,A_clone.data(), s, Piv.data());
+  LAPACKE_zgecon(LAPACK_COL_MAJOR, norm, s, A_clone.data(), s, anorm, &rcond);
+  return rcond;
+}
+float gecon_v (std::complex<float> *A, int s, char norm)
+{
+  std::vector<std::complex<float>> A_clone = {A, A+s*s};
+  std::vector<int> Piv(std::min(s,s));
+  float rcond = 2.0;
+  float anorm = LAPACKE_clange(LAPACK_COL_MAJOR, norm, s, s, A_clone.data(), s);
+  LAPACKE_cgetrf(LAPACK_COL_MAJOR, s,s,A_clone.data(), s, Piv.data());
+  LAPACKE_cgecon(LAPACK_COL_MAJOR, norm, s, A_clone.data(), s, anorm, &rcond);
+  return rcond;
+}
+
+//counts minimal singular value
+float nrmminsv (std::complex<float> *A, int m, int n)
+{
+  assert(m>0&n>0);
+  std::vector<std::complex<float>> A_clone = {A, A + m*n};
+  // for(int i = 0; i < m; i++){
+  //   for(int j = 0; j < n; j++){
+  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
+  //   }
+  // }
+  std::vector<float> s(std::min(m, n));
+  std::vector<std::complex<float>> U(m * m);
+  std::vector<std::complex<float>> VT(n * n);
+  char jobz = 'N';
+  int lda = m;
+  int ldu = m;
+  int ldvt = n;
+  LAPACKE_cgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
+  return s[std::min(m,n)-1];
+}
+float nrmmaxsv (std::complex<float> *A, int m, int n)
+{
+  std::vector<std::complex<float>> A_clone = {A, A + m*n};
+  // for(int i = 0; i < m; i++){
+  //   for(int j = 0; j < n; j++){
+  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
+  //   }
+  // }
+  std::vector<float> s(std::min(m, n));
+  std::vector<std::complex<float>> U(m * m);
+  std::vector<std::complex<float>> VT(n * n);
+  char jobz = 'N';
+  int lda = m;
+  int ldu = m;
+  int ldvt = n;
+  LAPACKE_cgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
+  return s[0];
+}
+double nrmminsv (std::complex<double> *A, int m, int n)
+{
+  assert(m>0&n>0);
+  std::vector<std::complex<double>> A_clone = {A, A + m*n};
+  // for(int i = 0; i < m; i++){
+  //   for(int j = 0; j < n; j++){
+  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
+  //   }
+  // }
+  std::vector<double> s(std::min(m, n));
+  std::vector<std::complex<double>> U(m * m);
+  std::vector<std::complex<double>> VT(n * n);
+  char jobz = 'N';
+  int lda = m;
+  int ldu = m;
+  int ldvt = n;
+  LAPACKE_zgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
+  return s[std::min(m,n)-1];
+}
+double nrmmaxsv (std::complex<double> *A, int m, int n)
+{
+  std::vector<std::complex<double>> A_clone = {A, A + m*n};
+  // for(int i = 0; i < m; i++){
+  //   for(int j = 0; j < n; j++){
+  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
+  //   }
+  // }
+  std::vector<double> s(std::min(m, n));
+  std::vector<std::complex<double>> U(m * m);
+  std::vector<std::complex<double>> VT(n * n);
+  char jobz = 'N';
+  int lda = m;
+  int ldu = m;
+  int ldvt = n;
+  LAPACKE_zgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
+  return s[0];
+}
 
 //------------------------
 // Block BCGSTAB
@@ -37,11 +136,32 @@ void bbcgsr(const AT      &A,
   std::ofstream logs("../output/BBCGSR_logs.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
-  std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
-  alpha_trcon1_out << "k,alpha_trcon1\n";
+  // std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
+  // alpha_trcon1_out << "k,alpha_trcon1\n";
 
-  std::ofstream beta_trcon1_out("../output/beta_rcon_i.csv", std::ios::out | std::ios::trunc);
-  beta_trcon1_out << "k,beta_trcon1\n";
+  // std::ofstream beta_trcon1_out("../output/beta_rcon_i.csv", std::ios::out | std::ios::trunc);
+  // beta_trcon1_out << "k,beta_trcon1\n";
+
+  // std::ofstream PhatPk_gecon_out("../output/PhatPk_gecon_1.csv", std::ios::out | std::ios::trunc);
+  // PhatPk_gecon_out << "k,gecon\n";
+
+  // std::ofstream omega_module_out("../output/omega_module.csv", std::ios::out | std::ios::trunc);
+  // omega_module_out << "k,module\n";
+
+  // std::ofstream omega_real_out("../output/omega_real.csv", std::ios::out | std::ios::trunc);
+  // omega_real_out << "k,real\n";  
+
+  std::ofstream R_nrmminsv("../output/R_nrmminsv.csv", std::ios::out | std::ios::trunc);
+  R_nrmminsv << "k,v\n";
+
+  std::ofstream R_nrmmaxsv("../output/R_nrmmaxsv.csv", std::ios::out | std::ios::trunc);
+  R_nrmmaxsv << "k,v\n";
+
+  // std::ofstream P_nrmsv("../output/P_nrmsv.csv", std::ios::out | std::ios::trunc);
+  // P_nrmsv << "k,min,max\n";
+
+  // std::ofstream Phat_nrmsv("../output/Phat_nrmsv.csv", std::ios::out | std::ios::trunc);
+  // Phat_nrmsv << "k,min,max\n";
 
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -97,19 +217,32 @@ void bbcgsr(const AT      &A,
     // LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
     // LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
     //obtain (P^hat**H P_k)**-1
+
+    //output minimal singular value of R_k
+    R_nrmminsv << k << "," << nrmminsv(Rk.data(), N, s) << "\n";  
+    R_nrmmaxsv << k << "," << nrmmaxsv(Rk.data(), N, s) << "\n";  
+    //output minimal and maximal singular value of R_k
+    // P_nrmsv << k << "," << nrmminsv(Pk.data(), N, s) << "," << nrmmaxsv(Pk.data(), N, s) << "\n";  
+
     std::vector<T> Eines(s*s);
     for (int i = 0; i < s; i++) Eines[s*i + i] = 1;
     CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,
                 s, s, N,
                 &one, P_hat.data(), N, Pk.data(), N,
                 &zero, alpha_system.data(), s);
+    
+    // PhatPk_gecon_out << k << "," << gecon_v(alpha_system.data(), s,'1') << "\n";
+
     qr_solve<T>(LAPACK_COL_MAJOR, s,s,s, alpha_system.data(), Eines.data());
     //P_k = P_k (P^hat**H P_k)**-1
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
                 N,s,s,
                 &one, Pk.data(),N, Eines.data(),s,
                 &zero, Tk.data(), N);
-    BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);            
+    BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);  
+
+    // Phat_nrmsv << k << "," << nrmminsv(Pk.data(), N, s) << "," << nrmmaxsv(Pk.data(), N, s) << "\n";  
+              
     //V_k = A P_k
     bmatvec(A, Pk, N,s, Vk);
     
@@ -149,7 +282,7 @@ void bbcgsr(const AT      &A,
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha.data(), s);
     //solve (R0c**H Vk) alpha_k = R0c**H Rk 
-    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data(), alpha_trcon1_out, k, 'I');
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());//, alpha_trcon1_out, k, 'I');
     //X += P_k alpha
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
@@ -206,6 +339,10 @@ void bbcgsr(const AT      &A,
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/
              BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     sum_omegak+=omegak;
+    //output omega
+    // omega_module_out << k << "," << std::abs(sum_omegak)*LAPACKE::lange(LAPACK_COL_MAJOR, 'f', N, s, Tk.data(), N) << "\n";
+    // omega_real_out << k << "," << std::abs(std::real(sum_omegak)) << "\n";
+    //------------
     //X_(k+1) += omega_k S_k               
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);
     //R_(k+1) -= omega_k T_k
@@ -264,7 +401,7 @@ void bbcgsr(const AT      &A,
                 s, s, N, 
                 &m_one, R0c.data(), N, Wk.data(), N,
                 &zero, alpha.data(), s);
-    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data(), beta_trcon1_out, k, '1');
+    qr_solve<T>(LAPACK_COL_MAJOR, s, s, s, alpha_system.data(), alpha.data());//, beta_trcon1_out, k, '1');
     //P_{k+1} += Pk beta_k
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
                 N, s, s,
