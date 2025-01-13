@@ -1,6 +1,3 @@
-#ifndef BBCG_HPP
-#define BBCG_HPP
-
 #include<vector>
 #include<string>
 #include<complex>
@@ -12,104 +9,11 @@
 #include<fstream>
 // #include<cblas.h>
 #include<BlasLapackInterface.hpp>
+#include<auxiliary_functions.hpp>
 
+#ifndef BBCGSR_HPP
+#define BBCGSR_HPP
 
-double gecon_v (std::complex<double> *A, int s, char norm)
-{
-  std::vector<std::complex<double>> A_clone = {A, A+s*s};
-  std::vector<int> Piv(s);
-  double rcond = 2.0;
-  double anorm = LAPACKE_zlange(LAPACK_COL_MAJOR, norm, s, s, A_clone.data(), s);
-  LAPACKE_zgetrf(LAPACK_COL_MAJOR, s,s,A_clone.data(), s, Piv.data());
-  LAPACKE_zgecon(LAPACK_COL_MAJOR, norm, s, A_clone.data(), s, anorm, &rcond);
-  return rcond;
-}
-float gecon_v (std::complex<float> *A, int s, char norm)
-{
-  std::vector<std::complex<float>> A_clone = {A, A+s*s};
-  std::vector<int> Piv(std::min(s,s));
-  float rcond = 2.0;
-  float anorm = LAPACKE_clange(LAPACK_COL_MAJOR, norm, s, s, A_clone.data(), s);
-  LAPACKE_cgetrf(LAPACK_COL_MAJOR, s,s,A_clone.data(), s, Piv.data());
-  LAPACKE_cgecon(LAPACK_COL_MAJOR, norm, s, A_clone.data(), s, anorm, &rcond);
-  return rcond;
-}
-
-//counts minimal singular value
-float nrmminsv (std::complex<float> *A, int m, int n)
-{
-  assert(m>0&n>0);
-  std::vector<std::complex<float>> A_clone = {A, A + m*n};
-  // for(int i = 0; i < m; i++){
-  //   for(int j = 0; j < n; j++){
-  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
-  //   }
-  // }
-  std::vector<float> s(std::min(m, n));
-  std::vector<std::complex<float>> U(m * m);
-  std::vector<std::complex<float>> VT(n * n);
-  char jobz = 'N';
-  int lda = m;
-  int ldu = m;
-  int ldvt = n;
-  LAPACKE_cgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
-  return s[std::min(m,n)-1];
-}
-float nrmmaxsv (std::complex<float> *A, int m, int n)
-{
-  std::vector<std::complex<float>> A_clone = {A, A + m*n};
-  // for(int i = 0; i < m; i++){
-  //   for(int j = 0; j < n; j++){
-  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
-  //   }
-  // }
-  std::vector<float> s(std::min(m, n));
-  std::vector<std::complex<float>> U(m * m);
-  std::vector<std::complex<float>> VT(n * n);
-  char jobz = 'N';
-  int lda = m;
-  int ldu = m;
-  int ldvt = n;
-  LAPACKE_cgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
-  return s[0];
-}
-double nrmminsv (std::complex<double> *A, int m, int n)
-{
-  assert(m>0&n>0);
-  std::vector<std::complex<double>> A_clone = {A, A + m*n};
-  // for(int i = 0; i < m; i++){
-  //   for(int j = 0; j < n; j++){
-  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
-  //   }
-  // }
-  std::vector<double> s(std::min(m, n));
-  std::vector<std::complex<double>> U(m * m);
-  std::vector<std::complex<double>> VT(n * n);
-  char jobz = 'N';
-  int lda = m;
-  int ldu = m;
-  int ldvt = n;
-  LAPACKE_zgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
-  return s[std::min(m,n)-1];
-}
-double nrmmaxsv (std::complex<double> *A, int m, int n)
-{
-  std::vector<std::complex<double>> A_clone = {A, A + m*n};
-  // for(int i = 0; i < m; i++){
-  //   for(int j = 0; j < n; j++){
-  //     A_clone[i+j*m]/=BLAS::nrm2(m,A+m*j,1);
-  //   }
-  // }
-  std::vector<double> s(std::min(m, n));
-  std::vector<std::complex<double>> U(m * m);
-  std::vector<std::complex<double>> VT(n * n);
-  char jobz = 'N';
-  int lda = m;
-  int ldu = m;
-  int ldvt = n;
-  LAPACKE_zgesdd(LAPACK_COL_MAJOR, jobz, m, n, A_clone.data(), lda, s.data(), U.data(), ldu, VT.data(), ldvt);
-  return s[0];
-}
 
 //------------------------
 // Block BCGSTAB
@@ -151,11 +55,11 @@ void bbcgsr(const AT      &A,
   // std::ofstream omega_real_out("../output/omega_real.csv", std::ios::out | std::ios::trunc);
   // omega_real_out << "k,real\n";  
 
-  std::ofstream R_nrmminsv("../output/R_nrmminsv.csv", std::ios::out | std::ios::trunc);
-  R_nrmminsv << "k,v\n";
+  // std::ofstream R_nrmminsv("../output/R_nrmminsv.csv", std::ios::out | std::ios::trunc);
+  // R_nrmminsv << "k,v\n";
 
-  std::ofstream R_nrmmaxsv("../output/R_nrmmaxsv.csv", std::ios::out | std::ios::trunc);
-  R_nrmmaxsv << "k,v\n";
+  // std::ofstream R_nrmmaxsv("../output/R_nrmmaxsv.csv", std::ios::out | std::ios::trunc);
+  // R_nrmmaxsv << "k,v\n";
 
   // std::ofstream P_nrmsv("../output/P_nrmsv.csv", std::ios::out | std::ios::trunc);
   // P_nrmsv << "k,min,max\n";
@@ -219,8 +123,8 @@ void bbcgsr(const AT      &A,
     //obtain (P^hat**H P_k)**-1
 
     //output minimal singular value of R_k
-    R_nrmminsv << k << "," << nrmminsv(Rk.data(), N, s) << "\n";  
-    R_nrmmaxsv << k << "," << nrmmaxsv(Rk.data(), N, s) << "\n";  
+    // R_nrmminsv << k << "," << nrmminsv(Rk.data(), N, s) << "\n";  
+    // R_nrmmaxsv << k << "," << nrmmaxsv(Rk.data(), N, s) << "\n";  
     //output minimal and maximal singular value of R_k
     // P_nrmsv << k << "," << nrmminsv(Pk.data(), N, s) << "," << nrmmaxsv(Pk.data(), N, s) << "\n";  
 
@@ -419,158 +323,12 @@ void bbcgsr(const AT      &A,
 
 }
 
-//-------------------
-// auxilary functions
-//-------------------
-
-template<class AT, class VT1, class VT2>
-void bmatvec(const AT      &A,
-             const VT1     &X,
-             const int     &N,
-             const int     &s,
-             VT2           &Res)
-{
-  using T = std::decay<decltype(*X.begin())>::type;
-  std::vector<T> rtmp(N);
-  std::vector<T> xtmp(N);
-
-  for(int i = 0; i < s; i++)
-  {
-    std::copy(X.begin()+i*N, X.begin()+(i+1)*N, xtmp.begin());
-    A.template matvec(xtmp, N, rtmp);
-    std::copy(rtmp.begin(), rtmp.end(), Res.begin() + i*N);
-  }
-}
-
-template<class AT, class VT1, class VT2>
-void bcmatvec(const AT      &A,
-             const VT1     &X,
-             const int     &N,
-             const int     &s,
-             VT2           &Res)
-{
-  using T = std::decay<decltype(*X.begin())>::type;
-  std::vector<T> rtmp(N);
-  std::vector<T> xtmp(N);
-
-  for(int i = 0; i < s; i++)
-  {
-    std::copy(X.begin()+i*N, X.begin()+(i+1)*N, xtmp.begin());
-    A.template cmatvec(xtmp, N, rtmp);
-    std::copy(rtmp.begin(), rtmp.end(), Res.begin() + i*N);
-  }
-}
-
-// Solves system A X = B with least squares method
-// A - skinny tall m x n matrix 
-// B - rhs matrix m x s
-template <class T>
-void qr_solve(int         matrix_layout, 
-              int32_t     m, 
-              int32_t     n, 
-              int32_t     s,
-              T          *A,
-              T          *B)
-{
-  assert(m >= n);
-  char Ad = 'T';
-  if constexpr (std::is_same_v<std::complex<float>, T> ||
-                std::is_same_v<std::complex<double>, T> ||
-                std::is_same_v<std::complex<long double>, T>)
-  {
-    Ad = 'C';
-  }
-  if (matrix_layout == LAPACK_COL_MAJOR){
-    std::unique_ptr<T[]> TAU(new T[n]);
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
-    LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
-    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, m, B, m); 
-  }
-  if (matrix_layout == LAPACK_ROW_MAJOR){
-    std::unique_ptr<T[]> TAU(new T[n]);
-    LAPACKE::geqrf(LAPACK_ROW_MAJOR, m, n, A, n, TAU.get());
-    LAPACKE::mqr(LAPACK_ROW_MAJOR, 'L', Ad, m, s, n, A, n, TAU.get(), B, s);
-    LAPACKE::trtrs(LAPACK_ROW_MAJOR, 'U', 'N', 'N', n, s, A, n, B, s); 
-  }
-} 
-
-template <class T>
-void qr_solve(int         matrix_layout, 
-              int32_t     m, 
-              int32_t     n, 
-              int32_t     s,
-              T          *A,
-              T          *B,
-              std::ofstream &out,
-              int k,
-              char norm)
-{
-  assert(m >= n);
-  assert(matrix_layout==LAPACK_COL_MAJOR);
-  char Ad = 'T';
-  if constexpr (std::is_same_v<std::complex<float>, T> ||
-                std::is_same_v<std::complex<double>, T> ||
-                std::is_same_v<std::complex<long double>, T>)
-  {
-    Ad = 'C';
-  }
-  if (matrix_layout == LAPACK_COL_MAJOR){
-    std::unique_ptr<T[]> TAU(new T[n]);
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, m, n, A, m, TAU.get());
-    LAPACKE::mqr(LAPACK_COL_MAJOR, 'L', Ad, m, s, n, A, m, TAU.get(), B, m);
-    trcon_write<T>(k, A, n, m, out, norm);
-    LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', n, s, A, m, B, m); 
-  }
-} 
-
-double max2norm(int matrix_layout,
-               int N, int s,
-               const double *Mat)
-{
-  assert(matrix_layout == LAPACK_COL_MAJOR);
-  std::vector<double> R_norms(s, 0);
-  for (int i = 0; i < s; i++)
-  {
-    R_norms[i] = BLAS::nrm2(N, Mat + i*N,1);
-  }
-  double res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
-  return res_2norm_max;
-}
-
-float max2norm(int matrix_layout,
-               int N, int s,
-               const std::complex<float> *Mat)
-{
-  assert(matrix_layout == LAPACK_COL_MAJOR);
-  std::vector<float> R_norms(s, 0);
-  for (int i = 0; i < s; i++)
-  {
-    R_norms[i] = BLAS::nrm2(N, Mat + i*N,1);
-  }
-  float res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
-  return res_2norm_max;
-}
-
-double max2norm(int matrix_layout,
-               int N, int s,
-               const std::complex<double> *Mat)
-{
-  assert(matrix_layout == LAPACK_COL_MAJOR);
-  std::vector<double> R_norms(s, 0);
-  for (int i = 0; i < s; i++)
-  {
-    R_norms[i] = BLAS::nrm2(N, Mat + i*N,1);
-  }
-  double res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
-  return res_2norm_max;
-}
-
-template<class T>
-void trcon_write(int k, T *A, int n, int m, std::ofstream &out, char norm)
-{ 
-  double trcon_v = 2.0;
-  LAPACKE::trcon(LAPACK_COL_MAJOR, norm, 'U', 'N', n, A, m, &trcon_v);
-  out << k << "," << trcon_v << "\n";
-} 
+// template<class T>
+// void trcon_write(int k, T *A, int n, int m, std::ofstream &out, char norm)
+// { 
+//   double trcon_v = 2.0;
+//   LAPACKE::trcon(LAPACK_COL_MAJOR, norm, 'U', 'N', n, A, m, &trcon_v);
+//   out << k << "," << trcon_v << "\n";
+// } 
 
 #endif

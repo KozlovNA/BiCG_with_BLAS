@@ -1,5 +1,5 @@
-#ifndef BCG_HPP
-#define BCG_HPP
+#ifndef BCGS_HPP
+#define BCGS_HPP
 
 #include<vector>
 #include<CXXBLAS.hpp>

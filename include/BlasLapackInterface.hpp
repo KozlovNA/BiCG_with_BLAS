@@ -1,8 +1,8 @@
-#ifndef BLASLAPACKINTERFACE_HPP
-#define BLASLAPACKINTERFACE_HPP
-
 #include<lapacke.h>
 #include<cblas.h>
+
+#ifndef BLASLAPACKINTERFACE_HPP
+#define BLASLAPACKINTERFACE_HPP
 
 //-------------------
 //LAPACK interface
