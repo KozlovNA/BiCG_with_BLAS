@@ -165,41 +165,61 @@ int main()
   // bbcgsr<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
   //-----------------------------------------------
   //! bbcg test on complex matrix 14k x 14k and 3 rhs with double precision
-  using RHSType = Eigen::MatrixXcf;
-  using MatrixType = MyMatrixX<std::complex<float>>;
-  using MatrixType2 = MyMatrixX<std::complex<double>>;
-  using VectorType = Eigen::VectorXcf;
-  using VectorType2 = Eigen::VectorXcd;
+  // using RHSType = Eigen::MatrixXcf;
+  // using MatrixType = MyMatrixX<std::complex<float>>;
+  // using MatrixType2 = MyMatrixX<std::complex<double>>;
+  // using VectorType = Eigen::VectorXcf;
+  // using VectorType2 = Eigen::VectorXcd;
 
-  RHSType rhs_s(3, 3); // "3" is arbitrary, in read_binary() function it will
-  MatrixType A_s(3,3);    // be resized
+  // RHSType rhs_s(3, 3); // "3" is arbitrary, in read_binary() function it will
+  // MatrixType A_s(3,3);    // be resized
 
-  read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
-  read_binary("/home/starman/mat_alm_full.dat", A_s);
+  // read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
+  // read_binary("/home/starman/mat_alm_full.dat", A_s);
   
-  MatrixType2 A = A_s.cast<std::complex<double>>();
-  MatrixType2 rhs = rhs_s.cast<std::complex<double>>();
+  // MatrixType2 A = A_s.cast<std::complex<double>>();
+  // MatrixType2 rhs = rhs_s.cast<std::complex<double>>();
 
-  int s = 3;
-  int interval = 361/s;
-  int N = rhs.rows();
-  MatrixType2 B(N, s);
-  std::cout << "picked columns: "; 
-  for (int i = 0; i < s; i++)
-  {
-    std::cout << i*360/s << ", ";
-    B.col(i) = rhs.col(i*360/s);
-  }
-  std::cout << "\n\n";
+  // int s = 3;
+  // int interval = 361/s;
+  // int N = rhs.rows();
+  // MatrixType2 B(N, s);
+  // std::cout << "picked columns: "; 
+  // for (int i = 0; i < s; i++)
+  // {
+  //   std::cout << i*360/s << ", ";
+  //   B.col(i) = rhs.col(i*360/s);
+  // }
+  // std::cout << "\n\n";
 
-  std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
-  std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
-  MatrixType2 X = MatrixType2::Zero(N, s);
+  // std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  // std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
+  // MatrixType2 X = MatrixType2::Zero(N, s);
 
-  VectorType2 X_v = X.reshaped();
-  VectorType2 B_v = B.reshaped();
+  // VectorType2 X_v = X.reshaped();
+  // VectorType2 B_v = B.reshaped();
 
-  bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+  // bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+  //-----------------------------------------------
+  //! simplest test on 3x3 matrix
+  using VectorType = Eigen::VectorXcf;
+  using MatrixType = MyMatrixX<std::complex<float>>;
+  using T = std::complex<float>;
+  MatrixType A(3,3);
+  A << T(2,0), T(3,0), T(5,0),
+       T(3,0), T(7,0), T(4,0),
+       T(1,0), T(2,0), T(2,0);
+
+  VectorType b(6);
+  b << T(10,0), T(3,0), T(3,0), T(0,0), T(1,0), T(0,0);
+
+  VectorType x(6);
+  x << T(0,0), T(0,0), T(0,0), T(0,0), T(0,0), T(0,0);
+
+  bbcgsr<MatrixType, VectorType>(A, b, 3, 2, x, 0.01);
+  std::cout << x << "\n"; 
+  // precise solution: 3, -2, 2; 4, -1, -1 
+  //-----------------------------------------------
 
   return 0;
 }
