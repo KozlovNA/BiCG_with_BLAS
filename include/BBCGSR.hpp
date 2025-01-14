@@ -2,13 +2,11 @@
 #include<string>
 #include<complex>
 #include<algorithm>
-#include<assert.h>
-#include<CXXBLAS.hpp>
-// #include<lapacke.h>
-#include<memory>
-#include<chrono>
 #include<fstream>
-// #include<cblas.h>
+#include<memory>
+#include<assert.h>
+#include<chrono>
+#include<CXXBLAS.hpp>
 #include<BlasLapackInterface.hpp>
 #include<auxiliary_functions.hpp>
 
@@ -89,52 +87,54 @@ void bbcgsr(const AT      &A,
   std::vector<T> P_hat(N*s);
 
   //----INITIALIZING ALGORITHM-----//
+  
   bmatvec(A, X, N, s, Rk);                        //R_0 = B - A X 
   BLAS::rscal(N*s, -1.0, Rk.data(),1);
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   matvec_count+=s;  // output
-/*
   //----orthorgonizing R_0----//
+  /*
   std::unique_ptr<T[]> tau(new T[s]);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
   LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
-*/
-  BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);  //R0c = R_0 
-  BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);  //P_0 = R_0
-  bcmatvec(A, R0c, N,s, P_hat);  //P^hat = A**H R0c
+  */
+  BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);   //R0c = R_0 
+  BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);    //P_0 = R_0
+  bcmatvec(A, R0c, N,s, P_hat);                   //P^hat = A**H R0c
   
   //----P_hat = QR, P_hat -> Q; R0c -> R0c R**-1----//
-  /*
+  ///*
   std::unique_ptr<T[]> tau_hat(new T[N]);
   std::vector<T>       PhRm1(s*s);
   std::vector<T>       R0c_new(N*s);
   std::vector<T>       R_auxiliary(s*s);
   for (int i = 0; i < s; i++) PhRm1[s*i + i] = 1;
-  LAPACKE::geqrf(LAPACK_COL_MAJOR, N, s, P_hat.data(), N, tau_hat.get()); //P_hat = QR
+  LAPACKE::geqrf(LAPACK_COL_MAJOR, N, s, P_hat.data(), N, tau_hat.get());      //P_hat = QR
   for (int i = 0; i < s; i++) {
     for (int j = i; j < s; j++) {
       R_auxiliary[i+j*s] = P_hat[i+j*N];
     }
   }
-  LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', s, s, R_auxiliary.data(), s, PhRm1.data(), s); //PhRm1 = R**-1
-  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,  //R0c_new = R0c R**-1
+  LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', s, s,                        
+                 R_auxiliary.data(), s, PhRm1.data(), s);
+  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,                       //R0c_new = R0c R**-1
               N, s, s, 
               &one, R0c.data(), N, PhRm1.data(), s,
               &zero, R0c_new.data(), N);
-  BLAS::copy(N*s, R0c_new.data(), 1, R0c.data(), 1); //R0c -> R0c_new
-  LAPACKE::gqr(LAPACK_COL_MAJOR, N, s, s,P_hat.data(), N, tau_hat.get()); //P_hat -> Q
-  */
+  BLAS::copy(N*s, R0c_new.data(), 1, R0c.data(), 1);                           //R0c -> R0c_new
+  LAPACKE::gqr(LAPACK_COL_MAJOR, N, s, s, P_hat.data(), N, tau_hat.get());     //P_hat -> Q
+  //*/
 
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
-
 
   //main loop
   for (int k = 0; k < (N+s-1)/s; k++)
   {
     //----Pk -> Pk * U^{-1}----//
     /*
-    LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau.get());
-    LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau.get());
+    std::unique_ptr<T[]> tau_PkUm1(new T[s]);
+    LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau_PkUm1.get());
+    LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau_PkUm1.get());
     */
 
     //----output minimal singular value of R_k----//
@@ -146,23 +146,23 @@ void bbcgsr(const AT      &A,
     */
 
     //-----obtain (P^hat**H P_k)**-1----//
-    /*
-    std::vector<T> Eines(s*s);
+    ///*
+    std::vector<T> Eines(s*s, 0);                                              //rhs = I     
     for (int i = 0; i < s; i++) Eines[s*i + i] = 1;
-    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,
+    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,                   //system = P^hat**H P_k
                 s, s, N,
                 &one, P_hat.data(), N, Pk.data(), N,
                 &zero, alpha_system.data(), s);
     
     //PhatPk_gecon_out << k << "," << gecon_v(alpha_system.data(), s,'1') << "\n";  //output
 
-    qr_solve<T>(LAPACK_COL_MAJOR, s,s,s, alpha_system.data(), Eines.data());
+    qr_solve<T>(LAPACK_COL_MAJOR, s,s,s, alpha_system.data(), Eines.data());   //solve  (P^hat**H P_k) Z = I
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,                     //P_k -> P_k (P^hat**H P_k)**-1
                 N,s,s,
                 &one, Pk.data(),N, Eines.data(),s,
                 &zero, Tk.data(), N);
     BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);  
-    */              
+    //*/              
 
     // Phat_nrmsv << k << "," << nrmminsv(Pk.data(), N, s) << "," << nrmmaxsv(Pk.data(), N, s) << "\n"; //output 
 
@@ -183,7 +183,7 @@ void bbcgsr(const AT      &A,
                 N, s, s,
                 &m_one, Vk.data(), N, alpha.data(), s,
                 &one, Rk.data(), N);
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X += P_k alpha
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X += P_k alpha_k
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);  
