@@ -7,6 +7,8 @@
 #include<fbinio.hpp>
 #include<BBCGSR.hpp>
 // #include<BBCGStab.hpp>
+#include<auxiliary_functions.hpp> //delete
+#include<BlasLapackInterface.hpp>
 int main()
 {
   //-----------------------------------------------
@@ -46,7 +48,7 @@ int main()
 
   // bbcg<MatrixType, VectorType>(A, b, 2, 1, x, 0.1);
   // std::cout << x << "\n"; 
-  //precise solution: 3, -2, 2
+  //precise solution: ?, ?
   //-----------------------------------------------
   //! test on complex matrix 14k x 14k and 1 rhs with single precision
   // using VectorType = Eigen::VectorXcf;
@@ -165,6 +167,7 @@ int main()
   // bbcgsr<MatrixType, VectorType>(A, B_v,N,s, X_v, 0.01);
   //-----------------------------------------------
   //! bbcgsr test on complex matrix 14k x 14k and 3 rhs with double precision
+  /*
   using RHSType = Eigen::MatrixXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
   using MatrixType2 = MyMatrixX<std::complex<double>>;
@@ -191,6 +194,7 @@ int main()
     B.col(i) = rhs.col(i*360/s);
   }
   std::cout << "\n\n";
+  //-----------------------------------------------
 
   std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
   std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
@@ -200,6 +204,56 @@ int main()
   VectorType2 B_v = B.reshaped();
 
   bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+  */
+  //-----------------------------------------------
+  //! bbcgsr test on complex matrix 14k x 14k and rhss received from rrqr
+  // /*
+  using RHSType = Eigen::MatrixXcf;
+  using MatrixType = MyMatrixX<std::complex<float>>;
+  using MatrixType2 = MyMatrixX<std::complex<double>>;
+  using VectorType = Eigen::VectorXcf;
+  using VectorType2 = Eigen::VectorXcd;
+
+  RHSType rhs_s(3, 3); // "3" is arbitrary, in read_binary() function it will
+  MatrixType A_s(3,3);    // be resized
+
+  read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
+  read_binary("/home/starman/mat_alm_full.dat", A_s);
+  
+  MatrixType2 A = A_s.cast<std::complex<double>>();
+  MatrixType2 rhs = rhs_s.cast<std::complex<double>>();
+
+  int s = 10;
+  int N = rhs.rows();
+
+//   for (int i = 0; i < 722; i++) {
+//      double col_norm = rhs.col(i).norm();
+//      rhs.col(i) /= col_norm;
+//   }
+
+  VectorType2 QR = rhs.reshaped();
+  std::unique_ptr<std::complex<double>[]> tau(new std::complex<double>[722]);
+  std::unique_ptr<int[]> jpvt(new int[722]);
+  for (int i=0;i<722;i++) jpvt[i]=0;
+  LAPACKE::geqp3(LAPACK_COL_MAJOR, N, 722, QR.data(), N, jpvt.get(), tau.get());
+  MatrixType2 B(N, s);
+  std::cout << "picked columns: "; 
+  for (int i = 0; i < s; i++)
+  {
+    std::cout << jpvt[i]-1 << ", ";
+    B.col(i) = rhs.col(jpvt[i]-1);
+  }
+  std::cout << "\n\n";
+
+  std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
+  MatrixType2 X = MatrixType2::Zero(N, s);
+
+  VectorType2 X_v = X.reshaped();
+  VectorType2 B_v = B.reshaped();
+
+  bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+  // */
   //-----------------------------------------------
   //! bbcgsr simplest test on 3x3 matrix
   /*
@@ -223,5 +277,26 @@ int main()
   // precise solution: 3, -2, 2; 4, -1, -1 
   //-----------------------------------------------
 
+  //------------------------//
+  //----Functions' tests----//
+  //------------------------//
+
+  //----bmatvec test----//
+  /*
+  using T = std::complex<float>;
+  MyMatrixX<std::complex<float>> A(3,3);
+  Eigen::VectorXcf b(6);
+  Eigen::VectorXcf res = Eigen::VectorXcf::Zero(6);
+
+  A << T(1,0), T(0,0), T(1,0),
+       T(0,0), T(1,0), T(0,0),
+       T(0,0), T(0,0), T(1,0);
+  b << T(1,0), T(3,0), T(5,0),
+       T(10,0), T(30,0), T(50,0);
+  // A.matvec(b,3,res);
+  bmatvec(A, b, 3, 2, res);
+  std::cout << res;
+  */
+  //-----------------------------------------------
   return 0;
 }

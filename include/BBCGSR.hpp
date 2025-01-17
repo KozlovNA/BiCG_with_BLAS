@@ -9,6 +9,7 @@
 #include<CXXBLAS.hpp>
 #include<BlasLapackInterface.hpp>
 #include<auxiliary_functions.hpp>
+#include<complex_map_type.hpp>
 
 #ifndef BBCGSR_HPP
 #define BBCGSR_HPP
@@ -28,6 +29,7 @@ void bbcgsr(const AT      &A,
   assert(N >= s);
 
   using T = std::decay<decltype(*X.begin())>::type;
+  using U = typename map_type<T>::type;
   T one = 1;
   T m_one = -1;
   T zero = 0;
@@ -93,37 +95,26 @@ void bbcgsr(const AT      &A,
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   matvec_count+=s;  // output
   //----orthorgonizing R_0----//
-  /*
+  // /*
   std::unique_ptr<T[]> tau(new T[s]);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
   LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
-  */
+  // */
   BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);   //R0c = R_0 
   BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);    //P_0 = R_0
   bcmatvec(A, R0c, N,s, P_hat);                   //P^hat = A**H R0c
   
   //----P_hat = QR, P_hat -> Q; R0c -> R0c R**-1----//
-  ///*
+  /*
   std::unique_ptr<T[]> tau_hat(new T[N]);
-  std::vector<T>       PhRm1(s*s);
-  std::vector<T>       R0c_new(N*s);
-  std::vector<T>       R_auxiliary(s*s);
-  for (int i = 0; i < s; i++) PhRm1[s*i + i] = 1;
+  T trsm_one(1.0);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N, s, P_hat.data(), N, tau_hat.get());      //P_hat = QR
-  for (int i = 0; i < s; i++) {
-    for (int j = i; j < s; j++) {
-      R_auxiliary[i+j*s] = P_hat[i+j*N];
-    }
-  }
-  LAPACKE::trtrs(LAPACK_COL_MAJOR, 'U', 'N', 'N', s, s,                        
-                 R_auxiliary.data(), s, PhRm1.data(), s);
-  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,                       //R0c_new = R0c R**-1
-              N, s, s, 
-              &one, R0c.data(), N, PhRm1.data(), s,
-              &zero, R0c_new.data(), N);
-  BLAS::copy(N*s, R0c_new.data(), 1, R0c.data(), 1);                           //R0c -> R0c_new
-  LAPACKE::gqr(LAPACK_COL_MAJOR, N, s, s, P_hat.data(), N, tau_hat.get());     //P_hat -> Q
-  //*/
+  CBLAS::trsm<T>(CblasColMajor, CblasRight, CblasUpper, CblasNoTrans, CblasNonUnit, 
+                 N,s, &trsm_one,                                               //R0c -> R0c R**-1
+                 P_hat.data(),N,
+                 R0c.data(),N);
+  bcmatvec(A, R0c, N,s, P_hat);                                                //P^hat = A**H R0c
+  */
 
   //TODO: alpha_system = beta system, so change qr_solve to utilize QR that you already found
 

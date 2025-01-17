@@ -229,6 +229,19 @@ int32_t trcon(int matrix_layout, char norm, char uplo, char diag,
              int32_t n, const std::complex<double> *a, int32_t lda, 
              double *rcond)
 {return LAPACKE_ztrcon(matrix_layout, norm, uplo, diag, n, a, lda, rcond);}
+
+void geqp3(int matrix_layout, int32_t m, int32_t n, float *a, int32_t lda, int32_t *jpvt, float *tau) {
+    LAPACKE_sgeqp3(matrix_layout, m, n, a, lda, jpvt, tau);
+}
+void geqp3(int matrix_layout, int32_t m, int32_t n, double *a, int32_t lda, int32_t *jpvt, double *tau) {
+    LAPACKE_dgeqp3(matrix_layout, m, n, a, lda, jpvt, tau);
+}
+void geqp3(int matrix_layout, int32_t m, int32_t n, std::complex<float> *a, int32_t lda, int32_t *jpvt, std::complex<float> *tau) {
+    LAPACKE_cgeqp3(matrix_layout, m, n, a, lda, jpvt, tau);
+}
+void geqp3(int matrix_layout, int32_t m, int32_t n, std::complex<double> *a, int32_t lda, int32_t *jpvt, std::complex<double> *tau) {
+    LAPACKE_zgeqp3(matrix_layout, m, n, a, lda, jpvt, tau);
+}
 }
 
 namespace CBLAS
@@ -353,6 +366,33 @@ void trmm(CBLAS_ORDER                   Order,
           blasint                       ldb      ) 
 {cblas_ztrmm(Order, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);}
 
+void trsm(const CBLAS_ORDER Order, const CBLAS_SIDE Side, const CBLAS_UPLO Uplo, 
+          const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag, 
+          const blasint M, const blasint N, 
+          const float alpha, 
+          const float *A, const blasint lda, 
+          float *B, const blasint ldb)
+{cblas_strsm(Order, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);}
+
+void trsm(const CBLAS_ORDER Order, const CBLAS_SIDE Side, const CBLAS_UPLO Uplo, 
+          const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag, 
+          const blasint M, const blasint N, 
+          const double alpha, 
+          const double *A, const blasint lda, 
+          double *B, const blasint ldb)
+{cblas_dtrsm(Order, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);}
+
+template<typename T>
+void trsm(//const char &complex_type,
+          const CBLAS_ORDER Order, const CBLAS_SIDE Side, const CBLAS_UPLO Uplo, 
+          const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag, 
+          const blasint M, const blasint N, 
+          const void *alpha, 
+          const void *A, const blasint lda, 
+          void *B, const blasint ldb) {
+    if constexpr (std::is_same_v<T,std::complex<float>>) cblas_ctrsm(Order, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);
+    if constexpr (std::is_same_v<T,std::complex<double>>) cblas_ztrsm(Order, Side, Uplo, TransA, Diag, M, N, alpha, A, lda, B, ldb);
+}
 }
 
 #endif

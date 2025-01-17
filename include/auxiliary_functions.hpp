@@ -96,10 +96,10 @@ void bmatvec(const AT      &A,
 
 template<class AT, class VT1, class VT2>
 void bcmatvec(const AT      &A,
-             const VT1     &X,
-             const int     &N,
-             const int     &s,
-             VT2           &Res)
+                 const VT1     &X,
+                 const int     &N,
+                 const int     &s,
+                 VT2           &Res)
 {
   using T = std::decay<decltype(*X.begin())>::type;
   std::vector<T> rtmp(N);
