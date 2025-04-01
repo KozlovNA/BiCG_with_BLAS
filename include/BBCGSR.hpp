@@ -38,7 +38,7 @@ void bbcgsr(const AT      &A,
   int matvec_count = 0;
   double rk_max2norm_rel = 0;
   
-  std::ofstream logs("../output/BBCGSR_logs.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgsr/rrqr_361_rhs_15_picked.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
   // std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
@@ -84,6 +84,7 @@ void bbcgsr(const AT      &A,
   std::vector<T> Reor_helper(N*s);
   std::vector<T> Wk(N*s);
   std::vector<T> Rk(N*s);
+  std::vector<T> R0(N*s);
   std::vector<T> R0c(N*s);
   std::vector<T> Pk(N*s);
   std::vector<T> P_hat(N*s);
@@ -95,15 +96,17 @@ void bbcgsr(const AT      &A,
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   matvec_count+=s;  // output
   //----orthorgonizing R_0----//
-  // /*
+  /*
   std::unique_ptr<T[]> tau(new T[s]);
   LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
   LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
-  // */
-  BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);   //R0c = R_0 
+  */
+  // /*
+  BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);   //R0c = R_0
+  BLAS::copy(N*s, Rk.data(), 1, R0.data(), 1);   //R0 = R_0 
   BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);    //P_0 = R_0
   bcmatvec(A, R0c, N,s, P_hat);                   //P^hat = A**H R0c
-  
+  // */
   //----P_hat = QR, P_hat -> Q; R0c -> R0c R**-1----//
   /*
   std::unique_ptr<T[]> tau_hat(new T[N]);
@@ -137,7 +140,7 @@ void bbcgsr(const AT      &A,
     */
 
     //-----obtain (P^hat**H P_k)**-1----//
-    ///*
+    /*
     std::vector<T> Eines(s*s, 0);                                              //rhs = I     
     for (int i = 0; i < s; i++) Eines[s*i + i] = 1;
     CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,                   //system = P^hat**H P_k
@@ -153,7 +156,7 @@ void bbcgsr(const AT      &A,
                 &one, Pk.data(),N, Eines.data(),s,
                 &zero, Tk.data(), N);
     BLAS::copy(N*s, Tk.data(),1, Pk.data(),1);  
-    //*/              
+    */              
 
     // Phat_nrmsv << k << "," << nrmminsv(Pk.data(), N, s) << "," << nrmmaxsv(Pk.data(), N, s) << "\n"; //output 
 
@@ -208,13 +211,14 @@ void bbcgsr(const AT      &A,
     //----output 1/2----//
     matvec_count+=s;
     rk_max2norm_rel = max2norm(CblasColMajor, N, s, Rk.data())/
-                     max2norm(CblasColMajor, N, s,R0c.data());
+                     max2norm(CblasColMajor, N, s,R0.data());
     std::cout << "step: " << float(k) + 0.5
               << ", ||Sk||_max2norm / ||R0||_max2norm = " << rk_max2norm_rel
               << "\n\n";
     logs << float(k) + 0.5 << ',' 
          << rk_max2norm_rel << ',' 
          << matvec_count << '\n';
+    if (k % 5 == 0) logs.flush();
     if (rk_max2norm_rel < eps){
       auto end = std::chrono::high_resolution_clock::now();
       std::cout << "\n\n" << "total time: "
@@ -248,13 +252,14 @@ void bbcgsr(const AT      &A,
     //----output 1----//
     matvec_count+=s;
     rk_max2norm_rel = max2norm(CblasColMajor, N, s, Rk.data())/
-                     max2norm(CblasColMajor, N, s,R0c.data());
+                     max2norm(CblasColMajor, N, s,R0.data());
     std::cout << "step: " << k + 1
               << ", ||Sk||_max2norm / ||R0||_max2norm = " << rk_max2norm_rel
               << "\n\n";
     logs << k + 1 << ',' 
          << rk_max2norm_rel << ',' 
          << matvec_count << '\n';
+    if (k % 5 == 0) logs.flush();
     if (rk_max2norm_rel < eps){
       auto end = std::chrono::high_resolution_clock::now();
       std::cout << "\n\n" << "total time: "

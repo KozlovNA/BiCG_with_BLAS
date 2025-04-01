@@ -60,4 +60,33 @@ public:
 
 };
 
+template<typename ScalarType>
+class MyMatrix: public Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> 
+{
+public:
+
+  using Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>::Matrix;
+
+  template<class VT, class RT>
+  void matvec(const VT   &x,
+              const int  &n,
+              RT         &res) const
+  {
+    ScalarType one = 1;
+    ScalarType zero = 0;
+    BLAS::gemv('N', n, n, one, (*this).data(), n, x.data(), 1, zero, res.data(), 1);
+  }
+  
+  template<class VT, class RT>
+  void cmatvec(const VT   &x,
+               const int  &n,
+               RT         &res) const
+  {
+    ScalarType one = 1;
+    ScalarType zero = 0;
+    BLAS::gemv('C', n, n, one, (*this).data(), n, x.data(), 1, zero, res.data(), 1);
+  }
+
+};
+
 #endif

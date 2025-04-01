@@ -15,7 +15,7 @@
 // Block BCGSTAB
 //------------------------
 template<class AT, class VT>
-void bbcg(const AT      &A,
+void bbcgs(const AT      &A,
           const VT      &B,
           const int     &N,
           const int     &s,
@@ -33,7 +33,7 @@ void bbcg(const AT      &A,
   int matvec_count = 0;
   double rk_max2norm_rel = 0;
   
-  std::ofstream logs("../output/BBCGSTAB_logs.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("../output/bbsgs/rrqr_361_rhs_20_picked.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
   auto start = std::chrono::high_resolution_clock::now();
@@ -46,8 +46,8 @@ void bbcg(const AT      &A,
 
   BLAS::rscal(N*s, -1, Rk.data(),1);
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
-  LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
-  LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
+  // LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
+  // LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
 
   std::vector<T> Pk(N*s);
   BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);
@@ -118,6 +118,7 @@ void bbcg(const AT      &A,
     logs << float(k) + 0.5 << ',' 
          << rk_max2norm_rel << ',' 
          << matvec_count << '\n';
+    if (k % 5 == 0) logs.flush();
     if (rk_max2norm_rel < eps){
       CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasTrans, 
                   N, s, s,
@@ -155,6 +156,7 @@ void bbcg(const AT      &A,
     logs << k + 1 << ',' 
          << rk_max2norm_rel << ',' 
          << matvec_count << '\n';
+    if (k % 5 == 0) logs.flush();
     if (rk_max2norm_rel < eps){
       auto end = std::chrono::high_resolution_clock::now();
       std::cout << "\n\n" << "total time: "

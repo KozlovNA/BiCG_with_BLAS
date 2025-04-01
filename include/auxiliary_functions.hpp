@@ -114,6 +114,21 @@ void bcmatvec(const AT      &A,
 }
 
 //Counts maximum euclidian norm of a column in matrix Mat 
+float max2norm(int matrix_layout,
+               int N, int s,
+               const float *Mat)
+{
+  assert(matrix_layout == LAPACK_COL_MAJOR);
+  std::vector<float> R_norms(s, 0);
+  for (int i = 0; i < s; i++)
+  {
+    R_norms[i] = BLAS::nrm2(N, Mat + i*N,1);
+  }
+  float res_2norm_max = *std::max_element(R_norms.begin(), R_norms.end());
+  return res_2norm_max;
+}
+
+//Counts maximum euclidian norm of a column in matrix Mat 
 double max2norm(int matrix_layout,
                int N, int s,
                const double *Mat)
@@ -128,6 +143,7 @@ double max2norm(int matrix_layout,
   return res_2norm_max;
 }
 
+//Counts maximum euclidian norm of a column in matrix Mat 
 float max2norm(int matrix_layout,
                int N, int s,
                const std::complex<float> *Mat)
@@ -142,6 +158,7 @@ float max2norm(int matrix_layout,
   return res_2norm_max;
 }
 
+//Counts maximum euclidian norm of a column in matrix Mat 
 double max2norm(int matrix_layout,
                int N, int s,
                const std::complex<double> *Mat)
@@ -156,5 +173,9 @@ double max2norm(int matrix_layout,
   return res_2norm_max;
 }
 
+template<typename T>
+void matrix_with_singular_values(T* s, int m, int n){
+  
+}
 
 #endif
