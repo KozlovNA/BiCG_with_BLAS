@@ -1,11 +1,12 @@
-#ifndef BCG_HPP
-#define BCG_HPP
+#ifndef BCGS_HPP
+#define BCGS_HPP
 
 #include<vector>
 #include<CXXBLAS.hpp>
 #include<chrono>
 #include<fstream>
 #include<extended.hpp>
+#include<string>
 
 
 //---------------------------------------------
@@ -15,7 +16,8 @@ template<class MT, class VT>
 void bcg (const MT      &A,
           const VT      &b,
           VT            &x,
-          const double  &eps)
+          const double  &eps,
+          std::string   &column_name)
 {
   using T = std::decay<decltype(*x.begin())>::type;
 
@@ -48,7 +50,10 @@ void bcg (const MT      &A,
   int matvec_count = 0;
   double rk_norm_rel = 0;
   
-  std::ofstream logs("../output/BCGSTAB_logs.csv", std::ios::out | std::ios::trunc);
+  std::string method_name = "../output/tezisi/one_rhs/bicgstab_logs";
+  std::string file_type_name = ".csv";
+  method_name = method_name + column_name + file_type_name;  
+  std::ofstream logs(method_name, std::ios::out | std::ios::trunc);
   logs << "k,res_2norm_rel,matvec_count\n";
 
   auto start = std::chrono::high_resolution_clock::now();
