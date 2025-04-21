@@ -33,7 +33,7 @@ void bbcgs(const AT      &A,
   int matvec_count = 0;
   double rk_max2norm_rel = 0;
   
-  std::ofstream logs("../output/bbsgs/rrqr_361_rhs_20_picked.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgs/rrqr_361_rhs_15_picked.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
   auto start = std::chrono::high_resolution_clock::now();

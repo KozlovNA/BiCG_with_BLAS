@@ -37,8 +37,7 @@ void bbcgsr(const AT      &A,
   //----prepare outputs----//
   int matvec_count = 0;
   double rk_max2norm_rel = 0;
-  
-  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgsr/rrqr_361_rhs_15_picked.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgsr/rrqr_361_rhs_100_picked_um1_r0qr.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
   // std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
@@ -95,17 +94,17 @@ void bbcgsr(const AT      &A,
   BLAS::rscal(N*s, -1.0, Rk.data(),1);
   BLAS::axpy(N*s, one, B.data(),1, Rk.data(),1);
   matvec_count+=s;  // output
-  //----orthorgonizing R_0----//
-  /*
-  std::unique_ptr<T[]> tau(new T[s]);
-  LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Rk.data(),N,tau.get());
-  LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Rk.data(),N,tau.get());
-  */
   // /*
   BLAS::copy(N*s, Rk.data(), 1, R0c.data(), 1);   //R0c = R_0
-  BLAS::copy(N*s, Rk.data(), 1, R0.data(), 1);   //R0 = R_0 
+  BLAS::copy(N*s, Rk.data(), 1, R0.data(), 1);    //R0 = R_0 
   BLAS::copy(N*s, Rk.data(), 1, Pk.data(), 1);    //P_0 = R_0
-  bcmatvec(A, R0c, N,s, P_hat);                   //P^hat = A**H R0c
+  // bcmatvec(A, R0c, N,s, P_hat);                   //P^hat = A**H R0c
+  // */
+  //----orthorgonizing R_0c----//
+  // /*
+  std::unique_ptr<T[]> tau(new T[s]);
+  LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,R0c.data(),N,tau.get());
+  LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,R0c.data(),N,tau.get());
   // */
   //----P_hat = QR, P_hat -> Q; R0c -> R0c R**-1----//
   /*
@@ -125,11 +124,11 @@ void bbcgsr(const AT      &A,
   for (int k = 0; k < (N+s-1)/s; k++)
   {
     //----Pk -> Pk * U^{-1}----//
-    /*
+    // /*
     std::unique_ptr<T[]> tau_PkUm1(new T[s]);
     LAPACKE::geqrf(LAPACK_COL_MAJOR, N,s,Pk.data(),N,tau_PkUm1.get());
     LAPACKE::gqr(LAPACK_COL_MAJOR, N,s,s,Pk.data(),N,tau_PkUm1.get());
-    */
+    // */
 
     //----output minimal singular value of R_k----//
     /*
