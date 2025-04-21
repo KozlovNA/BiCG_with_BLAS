@@ -197,70 +197,60 @@ void sbbcgsr(const AT      &A,
                 s, s, s, 
                 &one, Eines.data(), s, alpha_tmp.data(), s,
                 &zero, alpha.data(), s);
-    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,   //alpha_other_rhs = R0с**H R_k_other
-                s, s_other, N, 
-                &one, R0c.data(), N, Rk_other.data(), N,
-                &zero, alpha_other_tmp.data(), s);
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //alpha_other = ...
-                s, s_other, s, 
-                &one, Eines.data(), s, alpha_other_tmp.data(), s,
-                &zero, alpha_other.data(), s);
 
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_k = R_k - V_k alpha_k
                 N, s, s,
                 &m_one, Vk.data(), N, alpha.data(), s,
                 &one, Rk.data(), N);
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_k_other = R_k_other - V_k alpha_k_other
-                N, s_other, s,
-                &m_one, Vk.data(), N, alpha_other.data(), s,
-                &one, Rk_other.data(), N);
+
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X += P_k alpha_k
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);  
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X_other += P_k alpha_k_other
-                N, s_other, s,
-                &one, Pk.data(), N, alpha_other.data(), s,
-                &one, X_other.data(), N);  
 
     CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,   //alpha_rhs = R0с**H S_k
                 s, s, N, 
                 &one, R0c.data(), N, Rk.data(), N,
                 &zero, alpha_tmp.data(), s);
-    CBLAS::gemm(CblasColMajor, CblasConjTrans, CblasNoTrans,   //alpha_other_rhs = R0с**H S_other_k
-                s, s_other, N, 
-                &one, R0c.data(), N, Rk_other.data(), N,
-                &zero, alpha_other_tmp.data(), s);
 
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //alpha = ...
                 s, s, s, 
                 &one, Eines.data(), s, alpha_tmp.data(), s,
                 &zero, alpha.data(), s);
 
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //alpha_other = ...
-                s, s_other, s, 
-                &one, Eines.data(), s, alpha_other_tmp.data(), s,
-                &zero, alpha_other.data(), s);
-
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X += P_k alpha
                 N, s, s,
                 &one, Pk.data(), N, alpha.data(), s,
                 &one, X.data(), N);
+                
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_k = R_k - V_k alpha_k
+                N, s, s,
+                &m_one, Vk.data(), N, alpha.data(), s,
+                &one, Rk.data(), N);
+//other residuals
+    std::vector<T> alpha_other_system(N*s, 0);
+    BLAS::copy(N*s, Vk.data(),1, alpha_other_system.data(),1); //alpha_other_system = Vk
+
+    BLAS::copy(N*s_other, Rk_other.data(), 1, alpha_other_tmp.data(), 1); //alpha_other_rhs = R_k_other
+
+    qr_solve<T>(LAPACK_COL_MAJOR, N, s, s_other, alpha_other_system.data(), alpha_other_tmp.data()); //solve MSE V_k alpha_other_k = R_other_k
+    
+    for (int i = 0; i < s; i++) {                           //alpha_other = ...
+      for (int j = 0; j < s_other; j++) {
+        alpha_other[i*s + j] = alpha_other_tmp[i*N + j];   
+      }
+    }
+
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_k_other = R_k_other - V_k alpha_k_other
+                N, s_other, s,
+                &m_one, Vk.data(), N, alpha_other.data(), s,
+                &one, Rk_other.data(), N);
 
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //X_other += P_k alpha_k_other
                 N, s_other, s,
                 &one, Pk.data(), N, alpha_other.data(), s,
                 &one, X_other.data(), N);  
 
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_k = R_k - V_k alpha_k
-                N, s, s,
-                &m_one, Vk.data(), N, alpha.data(), s,
-                &one, Rk.data(), N);
-                
-    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,     //S_other_k = R_other_k - V_k alpha_other_k
-                N, s_other, s,
-                &m_one, Vk.data(), N, alpha_other.data(), s,
-                &one, Rk_other.data(), N); 
   //   //------check--------
   // // if (k = 0){
   //// std::cout << "\ncheck=";
@@ -301,20 +291,20 @@ void sbbcgsr(const AT      &A,
     BLAS::copy(N*s_other, Rk_other.data(),1, Sk_other.data(),1);            
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/   //omega_k = <T_k, S_k>_F / <T_k, T_k>_F
              BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    // omegak_other = BLAS::dotc(N*s_other, Tk_other.data(), 1, Rk_other.data(), 1)/   //omega_k = <T_k, S_k>_F / <T_k, T_k>_F
-                  //  BLAS::dotc(N*s_other, Tk_other.data(), 1, Tk_other.data(), 1);
+    omegak_other = BLAS::dotc(N*s_other, Tk_other.data(), 1, Rk_other.data(), 1)/   //omega_k = <T_k, S_k>_F / <T_k, T_k>_F
+                   BLAS::dotc(N*s_other, Tk_other.data(), 1, Tk_other.data(), 1);
     sum_omegak = omegak;             
-    // sum_omegak_other = omegak_other;             
+    sum_omegak_other = omegak_other;             
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);     //X_(k+1) += omega_k S_k
-    BLAS::axpy(N*s_other, omegak, Sk_other.data(), 1, X_other.data(), 1);     //X_other_(k+1) += omega_k S_other_k  
+    BLAS::axpy(N*s_other, omegak_other, Sk_other.data(), 1, X_other.data(), 1);     //X_other_(k+1) += omega_k S_other_k  
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);   //R_(k+1) = Sk - omega_k T_k           
-    BLAS::axpy(N*s_other, -omegak, Tk_other.data(), 1, Rk_other.data(), 1);   //R_other_(k+1) = Sk_other - omega_other_k T_other_k           
+    BLAS::axpy(N*s_other, -omegak_other, Tk_other.data(), 1, Rk_other.data(), 1);   //R_other_(k+1) = Sk_other - omega_other_k T_other_k           
     omegak = BLAS::dotc(N*s, Tk.data(), 1, Rk.data(), 1)/   //omega_k = <T_k, R_{k+1}>_F / <T_k, T_k>_F 
              BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
-    // omegak_other = BLAS::dotc(N*s_other, Tk_other.data(), 1, Rk_other.data(), 1)/   //omega_other_k = <T_other_k, R_other_{k+1}>_F / <T_other_k, T_other_k>_F 
-                  //  BLAS::dotc(N*s_other, Tk_other.data(), 1, Tk_other.data(), 1);
+    omegak_other = BLAS::dotc(N*s_other, Tk_other.data(), 1, Rk_other.data(), 1)/   //omega_other_k = <T_other_k, R_other_{k+1}>_F / <T_other_k, T_other_k>_F 
+                   BLAS::dotc(N*s_other, Tk_other.data(), 1, Tk_other.data(), 1);
     sum_omegak+=omegak;
-    // sum_omegak_other+=omegak_other;
+    sum_omegak_other+=omegak_other;
 
     // omega_module_out << k << ","                                            //output 
     //                  << std::abs(sum_omegak)*LAPACKE::lange(LAPACK_COL_MAJOR, 'f', N, s, Tk.data(), N)
@@ -323,8 +313,8 @@ void sbbcgsr(const AT      &A,
                    
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);     //X_(k+1) += omega_k S_k                    
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);   //R_(k+1) -= omega_k T_k
-    BLAS::axpy(N*s_other, omegak, Sk_other.data(), 1, X_other.data(), 1);     //X_(k+1) += omega_k S_k OTHER                    
-    BLAS::axpy(N*s_other, -omegak, Tk_other.data(), 1, Rk_other.data(), 1);   //R_(k+1) -= omega_k T_k OTHER
+    BLAS::axpy(N*s_other, omegak_other, Sk_other.data(), 1, X_other.data(), 1);     //X_(k+1) += omega_k S_k OTHER                    
+    BLAS::axpy(N*s_other, -omegak_other, Tk_other.data(), 1, Rk_other.data(), 1);   //R_(k+1) -= omega_k T_k OTHER
 
     //----output 1----//
     matvec_count+=s;

@@ -5,7 +5,8 @@
 #include<BCGStab.hpp>
 #include<MyMat.hpp>
 #include<fbinio.hpp>
-#include<BBCGSR.hpp>
+#include<seed_bbcgsr.hpp>
+// #include<BBCGSR.hpp>
 // #include<BBCGStab.hpp>
 #include<auxiliary_functions.hpp> //delete
 #include<BlasLapackInterface.hpp>
@@ -413,7 +414,7 @@ int main()
   */
  //-----------------------------------------------
   //! bbcgsr test on complex matrix 14k x 14k and rhss received from rrqr in the first half
-  // /*
+  /*
   using Type2 = double;
   using RHSType = Eigen::MatrixXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
@@ -427,10 +428,12 @@ int main()
   read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
   read_binary("/home/starman/mat_alm_full.dat", A_s);
   
+  int N_start = 0;
+  int N_pick = 361;
   MatrixType2 A = A_s.cast<std::complex<Type2>>();
-  MatrixType2 rhs = (rhs_s.cast<std::complex<Type2>>())(Eigen::all, Eigen::seq(0, 361));
+  MatrixType2 rhs = (rhs_s.cast<std::complex<Type2>>())(Eigen::all, Eigen::seq(N_start, N_start + N_pick));
 
-  int s = 15;
+  int s = 100;
   int N = rhs.rows();
 
 //   for (int i = 0; i < 722; i++) {
@@ -439,10 +442,10 @@ int main()
 //   }
 
   VectorType2 QR = rhs.reshaped();
-  std::unique_ptr<std::complex<Type2>[]> tau(new std::complex<Type2>[361]);
-  std::unique_ptr<int[]> jpvt(new int[361]);
-  for (int i=0;i<361;i++) jpvt[i]=0;
-  LAPACKE::geqp3(LAPACK_COL_MAJOR, N, 361, QR.data(), N, jpvt.get(), tau.get());
+  std::unique_ptr<std::complex<Type2>[]> tau(new std::complex<Type2>[N_pick]);
+  std::unique_ptr<int[]> jpvt(new int[N_pick]);
+  for (int i=0;i<N_pick;i++) jpvt[i]=0;
+  LAPACKE::geqp3(LAPACK_COL_MAJOR, N, N_pick, QR.data(), N, jpvt.get(), tau.get());
   MatrixType2 B(N, s);
   std::cout << "picked columns: "; 
   for (int i = 0; i < s; i++)
@@ -460,6 +463,70 @@ int main()
   VectorType2 B_v = B.reshaped();
 
   bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
+  */
+  //-----------------------------------------------
+   //-----------------------------------------------
+  //! seed test
+  // /*
+  using Type2 = double;
+  using RHSType = Eigen::MatrixXcf;
+  using MatrixType = MyMatrixX<std::complex<float>>;
+  using MatrixType2 = MyMatrixX<std::complex<Type2>>;
+  using VectorType = Eigen::VectorXcf;
+  using VectorType2 = Eigen::VectorXcd;
+
+  RHSType rhs_s(3, 3); // "3" is arbitrary, in read_binary() function it will
+  MatrixType A_s(3,3);    // be resized
+
+  read_binary("/home/starman/rhs_alm_722.dat", rhs_s);
+  read_binary("/home/starman/mat_alm_full.dat", A_s);
+  
+  int N_start = 0;
+  int N_pick = 721;
+  MatrixType2 A = A_s.cast<std::complex<Type2>>();
+  MatrixType2 rhs = (rhs_s.cast<std::complex<Type2>>())(Eigen::all, Eigen::seq(N_start, N_start + N_pick));
+
+  int s = 20;
+  int s_other = 50;
+  int N = rhs.rows();
+
+//   for (int i = 0; i < 722; i++) {
+//      double col_norm = rhs.col(i).norm();
+//      rhs.col(i) /= col_norm;
+//   }
+
+  VectorType2 QR = rhs.reshaped();
+  std::unique_ptr<std::complex<Type2>[]> tau(new std::complex<Type2>[N_pick]);
+  std::unique_ptr<int[]> jpvt(new int[N_pick]);
+  for (int i=0;i<N_pick;i++) jpvt[i]=0;
+  LAPACKE::geqp3(LAPACK_COL_MAJOR, N, N_pick, QR.data(), N, jpvt.get(), tau.get());
+  MatrixType2 B(N, s);
+  MatrixType2 B_other(N, s_other);
+  std::cout << "picked columns: "; 
+  for (int i = 0; i < s; i++)
+  {
+    std::cout << jpvt[i]-1 << ", ";
+    B.col(i) = rhs.col(jpvt[i]-1);
+  }
+  for (int i = s; i < s+s_other; i++)
+  {
+    std::cout << jpvt[i]-1 << ", ";
+    B_other.col(i-s) = rhs.col(jpvt[i]-1);
+  }
+  std::cout << "\n\n";
+
+  std::cout << "A is " << A.rows() << "x" << A.cols() << "\n\n";
+  std::cout << "b is " << B.rows() << "x" << B.cols() << "\n\n";
+  std::cout << "b_other is " << B_other.rows() << "x" << B_other.cols() << "\n\n";
+  MatrixType2 X = MatrixType2::Zero(N, s);
+  MatrixType2 X_other = MatrixType2::Zero(N, s_other);
+
+  VectorType2 X_v = X.reshaped();
+  VectorType2 X_other_v = X_other.reshaped();
+  VectorType2 B_v = B.reshaped();
+  VectorType2 B_other_v = B_other.reshaped();
+
+  sbbcgsr<MatrixType2, VectorType2>(A, B_v,B_other_v,N,s,s_other, X_v,X_other_v, 0.01);
   // */
   //-----------------------------------------------
   //-----------------------------------------------
