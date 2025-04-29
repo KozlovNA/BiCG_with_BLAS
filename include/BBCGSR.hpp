@@ -37,7 +37,7 @@ void bbcgsr(const AT      &A,
   //----prepare outputs----//
   int matvec_count = 0;
   double rk_max2norm_rel = 0;
-  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgsr/rrqr_361_rhs_100_picked_um1_r0qr.csv", std::ios::out | std::ios::trunc);
+  std::ofstream logs("/home/starman/Projects/INM/BiCG_with_BLAS/output/bbcgsr/tmp.csv", std::ios::out | std::ios::trunc);
   logs << "k,res_max2norm_rel,matvec_count\n";
 
   // std::ofstream alpha_trcon1_out("../output/alpha_rcon_i.csv", std::ios::out | std::ios::trunc);
@@ -49,8 +49,8 @@ void bbcgsr(const AT      &A,
   // std::ofstream PhatPk_gecon_out("../output/PhatPk_gecon_1.csv", std::ios::out | std::ios::trunc);
   // PhatPk_gecon_out << "k,gecon\n";
 
-  // std::ofstream omega_module_out("../output/omega_module.csv", std::ios::out | std::ios::trunc);
-  // omega_module_out << "k,module\n";
+  std::ofstream omega_module_out("../output/metrics/omegaTk_module_20rhs.csv", std::ios::out | std::ios::trunc);
+  omega_module_out << "k,module\n";
 
   // std::ofstream omega_real_out("../output/omega_real.csv", std::ios::out | std::ios::trunc);
   // omega_real_out << "k,real\n";  
@@ -240,10 +240,12 @@ void bbcgsr(const AT      &A,
              BLAS::dotc(N*s, Tk.data(), 1, Tk.data(), 1);
     sum_omegak+=omegak;
 
-    // omega_module_out << k << ","                                            //output 
-    //                  << std::abs(sum_omegak)*LAPACKE::lange(LAPACK_COL_MAJOR, 'f', N, s, Tk.data(), N)
-    //                  << "\n";
-    // omega_real_out << k << "," << std::abs(std::real(sum_omegak)) << "\n";  //output                                                
+    omega_module_out << k << ","                                                                        //output 
+                     << std::abs(sum_omegak)*LAPACKE::lange(LAPACK_COL_MAJOR, 'f', N, s, Tk.data(), N)
+                     << "\n";
+    // omega_real_out << k << "," << std::abs(std::real(sum_omegak)) << "\n";  //output     
+    // omega_module_out << k << "," << std::abs(sum_omegak) << "\n";  //output    
+    if (k % 5 == 0) omega_module_out.flush();
                    
     BLAS::axpy(N*s, omegak, Sk.data(), 1, X.data(), 1);     //X_(k+1) += omega_k S_k                    
     BLAS::axpy(N*s, -omegak, Tk.data(), 1, Rk.data(), 1);   //R_(k+1) -= omega_k T_k

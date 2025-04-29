@@ -5,8 +5,8 @@
 #include<BCGStab.hpp>
 #include<MyMat.hpp>
 #include<fbinio.hpp>
-#include<seed_bbcgsr.hpp>
-// #include<BBCGSR.hpp>
+// #include<seed_bbcgsr.hpp>
+#include<BBCGSR.hpp>
 // #include<BBCGStab.hpp>
 #include<auxiliary_functions.hpp> //delete
 #include<BlasLapackInterface.hpp>
@@ -414,7 +414,7 @@ int main()
   */
  //-----------------------------------------------
   //! bbcgsr test on complex matrix 14k x 14k and rhss received from rrqr in the first half
-  /*
+  // /*
   using Type2 = double;
   using RHSType = Eigen::MatrixXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
@@ -433,7 +433,7 @@ int main()
   MatrixType2 A = A_s.cast<std::complex<Type2>>();
   MatrixType2 rhs = (rhs_s.cast<std::complex<Type2>>())(Eigen::all, Eigen::seq(N_start, N_start + N_pick));
 
-  int s = 100;
+  int s = 20;
   int N = rhs.rows();
 
 //   for (int i = 0; i < 722; i++) {
@@ -463,11 +463,11 @@ int main()
   VectorType2 B_v = B.reshaped();
 
   bbcgsr<MatrixType2, VectorType2>(A, B_v,N,s, X_v, 0.01);
-  */
+  // */
   //-----------------------------------------------
    //-----------------------------------------------
   //! seed test
-  // /*
+  /*
   using Type2 = double;
   using RHSType = Eigen::MatrixXcf;
   using MatrixType = MyMatrixX<std::complex<float>>;
@@ -527,7 +527,7 @@ int main()
   VectorType2 B_other_v = B_other.reshaped();
 
   sbbcgsr<MatrixType2, VectorType2>(A, B_v,B_other_v,N,s,s_other, X_v,X_other_v, 0.01);
-  // */
+  */
   //-----------------------------------------------
   //-----------------------------------------------
 
